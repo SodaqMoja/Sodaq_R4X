@@ -182,7 +182,6 @@ private:
     size_t socketReceive(uint8_t socketID, SaraN2UDPPacketMetadata* packet, char* buffer, size_t size);
     static uint32_t convertDatetimeToEpoch(int y, int m, int d, int h, int min, int sec);
 
-    bool   attach();
     int8_t checkApn(const char* requiredAPN); // -1: error, 0: ip not valid => need attach, 1: valid ip
     bool   checkCFUN();
     bool   checkCOPS();

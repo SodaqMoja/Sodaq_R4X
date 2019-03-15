@@ -19,7 +19,7 @@
 */
 
 #include "Sodaq_R4X.h"
-#include "Sodaq_wdt.h"
+#include <Sodaq_wdt.h>
 #include "time.h"
 
 //#define DEBUG
@@ -28,9 +28,11 @@
 #define EPOCH_TIME_YEAR_OFF     100        /* years since 1900 */
 #define ATTACH_TIMEOUT          180000
 #define ATTACH_NEED_REBOOT      40000
+#define CGACT_TIMEOUT           150000
 #define COPS_TIMEOUT            180000
 #define ISCONNECTED_CSQ_TIMEOUT 10000
 #define REBOOT_DELAY            15000
+#define SEND_TIMEOUT            10000
 
 #define SODAQ_GSM_TERMINATOR "\r\n"
 #define SODAQ_GSM_MODEM_DEFAULT_INPUT_BUFFER_SIZE 1024
@@ -88,7 +90,7 @@ Sodaq_R4X::Sodaq_R4X() :
     _minRSSI             = -113;  // dBm
     _onoff               = 0;
 
-    memset(_pendingUDPBytes, 0, SOCKET_COUNT);
+    memset(_pendingUDPBytes, 0, sizeof(_pendingUDPBytes));
 }
 
 // Returns true if the modem replies to "AT" commands without timing out.
@@ -394,8 +396,19 @@ bool Sodaq_R4X::connect(const char* apn, const char* urat, const char* bandMask)
         return false;
     }
 
-    if (i == 0 && !attach()) {
+    uint32_t tm = millis();
+
+    if (!waitForSignalQuality()) {
         return false;
+    }
+
+    if (i == 0 && !attachGprs(ATTACH_TIMEOUT)) {
+        return false;
+    }
+
+    if (millis() - tm > ATTACH_NEED_REBOOT) {
+        reboot();
+        sodaq_wdt_safe_delay(REBOOT_DELAY);
     }
 
     return execCommand("AT+UDCONF=1,1") && doSIMcheck();
@@ -457,7 +470,7 @@ bool Sodaq_R4X::attachGprs(uint32_t timeout)
 
     while (!is_timedout(start, timeout)) {
         if (isAttached()) {
-            if (isDefinedIP4() || (execCommand("AT+CGACT=1") && isDefinedIP4())) {
+            if (isDefinedIP4() || (execCommand("AT+CGACT=1", CGACT_TIMEOUT) && isDefinedIP4())) {
                 return true;
             }
         }
@@ -518,16 +531,13 @@ size_t Sodaq_R4X::socketSend(uint8_t socketID, const char* remoteIP, const uint1
 
     print("AT+USOST=");
     print(socketID);
-    print(',');
-    print('"');
+    print(",\"");
     print(remoteIP);
-    print('"');
-    print(',');
+    print("\",");
     print(remotePort);
     print(',');
     print(size);
-    print(',');
-    print('"');
+    print(",\"");
 
     for (size_t i = 0; i < size; ++i) {
         print(static_cast<char>(NIBBLE_TO_HEX_CHAR(HIGH_NIBBLE(buffer[i]))));
@@ -538,7 +548,7 @@ size_t Sodaq_R4X::socketSend(uint8_t socketID, const char* remoteIP, const uint1
 
     char outBuffer[64];
 
-    if (readResponse(outBuffer, sizeof(outBuffer), "+USOST: ") != GSMResponseOK) {
+    if (readResponse(outBuffer, sizeof(outBuffer), "+USOST: ", SEND_TIMEOUT) != GSMResponseOK) {
         return 0;
     }
 
@@ -806,26 +816,6 @@ uint32_t Sodaq_R4X::convertDatetimeToEpoch(int y, int m, int d, int h, int min, 
     tm.tm_sec   = sec;
 
     return mktime(&tm);
-}
-
-bool Sodaq_R4X::attach()
-{
-    uint32_t tm = millis();
-
-    if (!waitForSignalQuality()) {
-        return false;
-    }
-
-    if (!attachGprs(ATTACH_TIMEOUT)) {
-        return false;
-    }
-
-    if (millis() - tm > ATTACH_NEED_REBOOT) {
-        reboot();
-        sodaq_wdt_safe_delay(REBOOT_DELAY);
-    }
-
-    return true;
 }
 
 int8_t Sodaq_R4X::checkApn(const char* requiredAPN)
