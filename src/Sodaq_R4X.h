@@ -46,6 +46,13 @@ enum GSMResponseTypes {
     GSMResponseEmpty = 5
 };
 
+enum SimStatuses {
+    SimStatusUnknown = 0,
+    SimMissing,
+    SimNeedsPin,
+    SimReady,
+};
+
 #define UNUSED(x) (void)(x)
 
 #define SOCKET_COUNT 7
@@ -73,20 +80,28 @@ private:
 class Sodaq_R4X
 {
 public:
+    /******************************************************************************
+    * Main
+    *****************************************************************************/
+
     Sodaq_R4X();
 
-    enum SimStatuses {
-        SimStatusUnknown = 0,
-        SimMissing,
-        SimNeedsPin,
-        SimReady,
-    };
+    // Initializes the modem instance. Sets the modem stream and the on-off power pins.
+    void init(Sodaq_OnOffBee* onoff, Stream& stream, uint8_t cid = SODAQ_R4X_DEFAULT_CID);
 
-    // Turns the modem on and returns true if successful.
+    // Turns the modem on/off and returns true if successful.
     bool on();
-
-    // Turns the modem off and returns true if successful.
     bool off();
+
+    // Turns on and initializes the modem, then connects to the network and activates the data connection.
+    bool connect(const char* apn, const char* urat = 0, const char* bandMask = 0);
+
+    // Disconnects the modem from the network.
+    bool disconnect();
+
+    // Returns the default baud rate of the modem.
+    // To be used when initializing the modem stream for the first time.
+    uint32_t getDefaultBaudrate() { return 115200; };
 
     // Sets the optional "Diagnostics and Debug" stream.
     void setDiag(Stream &stream) { _diagStream = &stream; }
@@ -96,97 +111,129 @@ public:
     // Needs to be called before init().
     void setInputBufferSize(size_t value) { _inputBufferSize = value; };
 
-    bool setRadioActive(bool on);
-    bool setIndicationsActive(bool on);
-    bool setApn(const char* apn);
+
+    /******************************************************************************
+    * Public
+    *****************************************************************************/
+
+    bool attachGprs(uint32_t timeout = 10L * 60L * 1000);
+
+    bool getCCID(char* buffer, size_t size);
     bool getEpoch(uint32_t* epoch);
-    bool setVerboseErrors(bool on);
+    bool getFirmwareVersion(char* buffer, size_t size);
+    bool getIMEI(char* buffer, size_t size);
+
+    SimStatuses getSimStatus();
+
+    bool execCommand(const char* command, uint32_t timeout = DEFAULT_READ_MS, char* buffer = NULL, size_t size = 0);
 
     // Returns true if the modem replies to "AT" commands without timing out.
     bool isAlive();
 
-    // Returns the default baud rate of the modem.
-    // To be used when initializing the modem stream for the first time.
-    uint32_t getDefaultBaudrate() { return 115200; };
-
-    // Initializes the modem instance. Sets the modem stream and the on-off power pins.
-    void init(Sodaq_OnOffBee* onoff, Stream& stream, uint8_t cid = SODAQ_R4X_DEFAULT_CID);
-
-    // Turns on and initializes the modem, then connects to the network and activates the data connection.
-    bool connect(const char* apn, const char* urat = 0, const char* bandMask = 0);
-
-    // Disconnects the modem from the network.
-    bool disconnect();
-
     // Returns true if the modem is attached to the network and has an activated data connection.
     bool isAttached();
-
-    // Returns true if defined IP4 address is not 0.0.0.0.
-    bool isDefinedIP4();
 
     // Returns true if the modem is connected to the network and IP address is not 0.0.0.0.
     bool isConnected();
 
-    // Gets the Received Signal Strength Indication in dBm and Bit Error Rate.
-    // Returns true if successful.
-    bool getRSSIAndBER(int8_t* rssi, uint8_t* ber);
-    int8_t convertCSQ2RSSI(uint8_t csq) const;
-    uint8_t convertRSSI2CSQ(int8_t rssi) const;
-
-    void setMinRSSI(int rssi) { _minRSSI = rssi; }
-    void setMinCSQ(int csq) { _minRSSI = convertCSQ2RSSI(csq); }
-    int8_t getMinRSSI() const { return _minRSSI; }
-    uint8_t getCSQtime() const { return _CSQtime; }
-    int8_t getLastRSSI() const { return _lastRSSI; }
-
-    int createSocket(uint16_t localPort = 0);
-    size_t socketSend(uint8_t socketID, const char* remoteIP, const uint16_t remotePort, const uint8_t* buffer, size_t size);
-    size_t socketSend(uint8_t socketID, const char* remoteIP, const uint16_t remotePort, const char* str);
-    size_t socketReceiveHex(uint8_t socketID, char* buffer, size_t length, SaraN2UDPPacketMetadata* p = NULL);
-    size_t socketReceiveBytes(uint8_t socketID, uint8_t* buffer, size_t length, SaraN2UDPPacketMetadata* p = NULL);
-    size_t getPendingUDPBytes(uint8_t socketID);
-    bool hasPendingUDPBytes(uint8_t socketID);
-    bool closeSocket(uint8_t socketID);
-    bool waitForUDPResponse(uint8_t socketID, uint32_t timeoutMS = SODAQ_R4X_DEFAULT_UDP_TIMOUT_MS);
-
-    void setPin(const char* pin);
-    SimStatuses getSimStatus();
-
-    bool getIMEI(char* buffer, size_t size);
-    bool getCCID(char* buffer, size_t size);
-    bool getFirmwareVersion(char* buffer, size_t size);
+    // Returns true if defined IP4 address is not 0.0.0.0.
+    bool isDefinedIP4();
 
     void purgeAllResponsesRead();
-    bool attachGprs(uint32_t timeout = 10L * 60L * 1000);
-    bool execCommand(const char* command, uint32_t timeout = DEFAULT_READ_MS, char* buffer = NULL, size_t size = 0);
+
+    bool setApn(const char* apn);
+    bool setIndicationsActive(bool on);
+    void setPin(const char* pin);
+    bool setRadioActive(bool on);
+    bool setVerboseErrors(bool on);
+
+
+    /******************************************************************************
+    * RSSI and CSQ
+    *****************************************************************************/
+
+    int8_t  convertCSQ2RSSI(uint8_t csq) const;
+    uint8_t convertRSSI2CSQ(int8_t rssi) const;
+
+    uint8_t getCSQtime()  const { return _CSQtime; }
+    int8_t  getLastRSSI() const { return _lastRSSI; }
+    int8_t  getMinRSSI()  const { return _minRSSI; }
+
+    // Gets the Received Signal Strength Indication in dBm and Bit Error Rate.
+    // Returns true if successful.
+    bool    getRSSIAndBER(int8_t* rssi, uint8_t* ber);
+
+    void    setMinCSQ(int csq) { _minRSSI = convertCSQ2RSSI(csq); }
+    void    setMinRSSI(int rssi) { _minRSSI = rssi; }
+
+
+    /******************************************************************************
+    * Sockets
+    *****************************************************************************/
+
+    int    createSocket(uint16_t localPort = 0);
+    bool   closeSocket(uint8_t socketID);
+    size_t getPendingUDPBytes(uint8_t socketID);
+    bool   hasPendingUDPBytes(uint8_t socketID);
+    size_t socketReceiveBytes(uint8_t socketID, uint8_t* buffer, size_t length, SaraN2UDPPacketMetadata* p = NULL);
+    size_t socketReceiveHex(uint8_t socketID, char* buffer, size_t length, SaraN2UDPPacketMetadata* p = NULL);
+    size_t socketSend(uint8_t socketID, const char* remoteIP, const uint16_t remotePort, const char* str);
+    size_t socketSend(uint8_t socketID, const char* remoteIP, const uint16_t remotePort, const uint8_t* buffer, size_t size);
+    bool   waitForUDPResponse(uint8_t socketID, uint32_t timeoutMS = SODAQ_R4X_DEFAULT_UDP_TIMOUT_MS);
+
+
+    /******************************************************************************
+    * MQTT
+    *****************************************************************************/
+
+    bool mqttLogin();
+    bool mqttLogout();
+    bool mqttPing(const char* server);
+    bool mqttPublish(const char* topic, const uint8_t* msg, size_t size, uint8_t qos = 0, uint8_t retain = 0, bool useHEX = false);
+    bool mqttSubscribe(const char* filter, uint8_t qos = 0);
+    bool mqttUnsubscribe(const char* filter);
+
+    bool mqttSetAuth(const char* name, const char* pw);
+    bool mqttSetCleanSettion(bool enabled);
+    bool mqttSetClientId(const char* id);
+    bool mqttSetInactivityTimeout(uint16_t timeout);
+    bool mqttSetLocalPort(uint16_t port);
+    bool mqttSetSecureOption(bool enabled, int8_t profile = -1);
+    bool mqttSetServer(const char* server, uint16_t port);
+    bool mqttSetServerIP(const char* ip, uint16_t port);
 
 private:
     uint8_t _cid;
+    size_t  _pendingUDPBytes[SOCKET_COUNT];
+    char*   _pin;
 
-    // flag indicating UDP response via URC
-    size_t _pendingUDPBytes[SOCKET_COUNT];
-
-    char* _pin = 0;
-
-    static bool startsWith(const char* pre, const char* str);
-
-    bool waitForSignalQuality(uint32_t timeout = 5L * 60L * 1000);
-    bool checkURC(char* buffer);
-    void reboot();
-    bool doSIMcheck();
-    bool setSimPin(const char* simPin);
-
-    GSMResponseTypes readResponse(char* outBuffer = NULL, size_t outMaxSize = 0, const char* prefix = NULL, uint32_t timeout = DEFAULT_READ_MS);
-
-    // For sara R4XX, receiving in chunks does NOT work, you have to receive the full packet
-    size_t socketReceive(uint8_t socketID, SaraN2UDPPacketMetadata* packet, char* buffer, size_t size);
-    static uint32_t convertDatetimeToEpoch(int y, int m, int d, int h, int min, int sec);
+    /******************************************************************************
+    * Private
+    *****************************************************************************/
 
     int8_t checkApn(const char* requiredAPN); // -1: error, 0: ip not valid => need attach, 1: valid ip
+    bool   checkBandMask(const char* requiredURAT, const char* requiredBankMask);
     bool   checkCFUN();
     bool   checkCOPS();
-    bool   checkBandMask(const char* requiredURAT, const char* requiredBankMask);
     bool   checkUrat(const char* requiredURAT);
+    bool   checkURC(char* buffer);
+    bool   doSIMcheck();
+
+    GSMResponseTypes readResponse(char* outBuffer = NULL, size_t outMaxSize = 0, const char* prefix = NULL,
+                                  uint32_t timeout = DEFAULT_READ_MS);
+
+    void   reboot();
+    bool   setSimPin(const char* simPin);
+    size_t socketReceive(uint8_t socketID, SaraN2UDPPacketMetadata* packet, char* buffer, size_t size);
+    bool   waitForSignalQuality(uint32_t timeout = 5L * 60L * 1000);
+
+
+    /******************************************************************************
+    * Utils
+    *****************************************************************************/
+
+    static uint32_t convertDatetimeToEpoch(int y, int m, int d, int h, int min, int sec);
+    static bool startsWith(const char* pre, const char* str);
 
 
     /******************************************************************************
@@ -212,9 +259,9 @@ private:
     // The buffer used when reading from the modem. The space is allocated during init() via initBuffer().
     char* _inputBuffer;
 
-    char * _apn;
-    char * _apnUser;
-    char * _apnPass;
+    char* _apn;
+    char* _apnUser;
+    char* _apnPass;
 
     // This flag keeps track if the next write is the continuation of the current command
     // A Carriage Return will reset this flag.
