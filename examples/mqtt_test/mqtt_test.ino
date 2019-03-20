@@ -47,6 +47,8 @@ void setup()
         r4x.mqttPublish("/home/test/test1", buf1, sizeof(buf1), 0, 0, 1);
         r4x.mqttSubscribe("/home/test/#");
     }
+
+    CONSOLE_STREAM.println("Booting done");
 }
 
 void loop()
@@ -55,15 +57,20 @@ void loop()
         return;
     }
 
+    // TODO - remove it
     if (CONSOLE_STREAM.available()) {
         int i = CONSOLE_STREAM.read();
         CONSOLE_STREAM.write(i);
         MODEM_STREAM.write(i);
     }
 
-    if (MODEM_STREAM.available()) {
-        CONSOLE_STREAM.write(MODEM_STREAM.read());
-    }
+    r4x.mqttLoop();
+
+    // if (MODEM_STREAM.available()) {
+    //     CONSOLE_STREAM.write(MODEM_STREAM.read());
+    // }
+
+    // TODO: check messages (+UUMQTTCM)
 }
 
 bool initNetwork()
@@ -82,9 +89,11 @@ bool initNetwork()
 
 bool initMQTT()
 {
-    r4x.execCommand("AT+UMQTT=?");
+    bool b = r4x.mqttSetServer(MQTT_SERVER_NAME, MQTT_SERVER_PORT);
 
-    bool b = r4x.mqttSetServer(MQTT_SERVER_NAME, MQTT_SERVER_PORT) && r4x.mqttLogin();
+    if (b) {
+        b = r4x.mqttLogin();
+    }
 
     CONSOLE_STREAM.println(b ? "MQTT connected" : "MQTT failed");
 

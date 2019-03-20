@@ -68,8 +68,8 @@
 #define debugPrintLn(...)
 #endif
 
-#define NL '\n'
 #define CR '\r'
+#define LF '\n'
 
 #define SOCKET_FAIL -1
 #define NOW (uint32_t)millis()
@@ -95,6 +95,9 @@ Sodaq_R4X::Sodaq_R4X() :
     _lastRSSI            = 0;
     _minRSSI             = -113;  // dBm
     _onoff               = 0;
+    _mqttLoginResult     = 0xFF;
+    _mqttPendingMessages = 0;
+    _mqttSubscribeReason = 0xFF;
     _pin                 = 0;
 
     memset(_pendingUDPBytes, 0, sizeof(_pendingUDPBytes));
@@ -639,9 +642,21 @@ bool Sodaq_R4X::mqttLogin()
 {
     char buffer[16];
 
+    _mqttLoginResult = 0xFF;
+
     println("AT+UMQTTC=1");
 
-    return (readResponse(buffer, sizeof(buffer), "+UMQTTC: ", UMQTT_TIMEOUT) == GSMResponseOK) && strcmp(buffer, "1,1");
+    if ((readResponse(buffer, sizeof(buffer), "+UMQTTC: ", UMQTT_TIMEOUT) != GSMResponseOK) || !startsWith("1,1", buffer)) {
+        return false;
+    }
+
+    // check URC synchronously
+    uint32_t startTime = millis();
+    while ((_mqttLoginResult == 0xFF) && (millis() - startTime) < 10000) {
+        mqttLoop();
+    }
+
+    return (_mqttLoginResult == 0);
 }
 
 bool Sodaq_R4X::mqttLogout()
@@ -650,7 +665,26 @@ bool Sodaq_R4X::mqttLogout()
 
     println("AT+UMQTTC=0");
 
-    return (readResponse(buffer, sizeof(buffer), "+UMQTTC: ", UMQTT_TIMEOUT) == GSMResponseOK) && strcmp(buffer, "0,1");
+    return (readResponse(buffer, sizeof(buffer), "+UMQTTC: ", UMQTT_TIMEOUT) == GSMResponseOK) && startsWith("0,1", buffer);
+}
+
+void Sodaq_R4X::mqttLoop()
+{
+    if (!_modemStream->available()) {
+        return;
+    }
+
+    int count = readLn(_inputBuffer, _inputBufferSize, 250); // 250ms, how many bytes at which baudrate?
+    sodaq_wdt_reset();
+
+    if (count <= 0) {
+        return;
+    }
+
+    debugPrint("<< ");
+    debugPrintLn(_inputBuffer);
+
+    checkURC(_inputBuffer);
 }
 
 bool Sodaq_R4X::mqttPing(const char* server)
@@ -661,7 +695,7 @@ bool Sodaq_R4X::mqttPing(const char* server)
     print(server);
     println('"');
 
-    return (readResponse(buffer, sizeof(buffer), "+UMQTTC: ", UMQTT_TIMEOUT) == GSMResponseOK) && strcmp(buffer, "8,1");
+    return (readResponse(buffer, sizeof(buffer), "+UMQTTC: ", UMQTT_TIMEOUT) == GSMResponseOK) && startsWith("8,1", buffer);
 }
 
 bool Sodaq_R4X::mqttPublish(const char* topic, const uint8_t* msg, size_t size, uint8_t qos, uint8_t retain, bool useHEX)
@@ -690,12 +724,14 @@ bool Sodaq_R4X::mqttPublish(const char* topic, const uint8_t* msg, size_t size, 
 
     println('"');
 
-    return (readResponse(buffer, sizeof(buffer), "+UMQTTC: ", UMQTT_TIMEOUT) == GSMResponseOK) && strcmp(buffer, "2,1");
+    return (readResponse(buffer, sizeof(buffer), "+UMQTTC: ", UMQTT_TIMEOUT) == GSMResponseOK) && startsWith("2,1", buffer);
 }
 
 bool Sodaq_R4X::mqttSubscribe(const char* filter, uint8_t qos)
 {
     char buffer[16];
+
+    _mqttSubscribeReason = 0xFF;
 
     print("AT+UMQTTC=4,");
     print(qos);
@@ -703,7 +739,17 @@ bool Sodaq_R4X::mqttSubscribe(const char* filter, uint8_t qos)
     print(filter);
     println('"');
 
-    return (readResponse(buffer, sizeof(buffer), "+UMQTTC: ", UMQTT_TIMEOUT) == GSMResponseOK) && strcmp(buffer, "4,1");
+    if ((readResponse(buffer, sizeof(buffer), "+UMQTTC: ", UMQTT_TIMEOUT) != GSMResponseOK) || !startsWith("4,1", buffer)) {
+        return false;
+    }
+
+    // check URC synchronously
+    uint32_t startTime = millis();
+    while ((_mqttSubscribeReason == 0xFF) && (millis() - startTime) < 10000) {
+        mqttLoop();
+    }
+
+    return (_mqttSubscribeReason == 1);
 }
 
 bool Sodaq_R4X::mqttUnsubscribe(const char* filter)
@@ -714,7 +760,17 @@ bool Sodaq_R4X::mqttUnsubscribe(const char* filter)
     print(filter);
     println('"');
 
-    return (readResponse(buffer, sizeof(buffer), "+UMQTTC: ", UMQTT_TIMEOUT) == GSMResponseOK) && strcmp(buffer, "5,1");
+    return (readResponse(buffer, sizeof(buffer), "+UMQTTC: ", UMQTT_TIMEOUT) == GSMResponseOK) && startsWith("5,1", buffer);
+}
+
+uint8_t Sodaq_R4X::mqttGetLoginResult()
+{
+    return _mqttLoginResult;
+}
+
+size_t Sodaq_R4X::mqttGetPendingMessages()
+{
+    return _mqttPendingMessages;
 }
 
 bool Sodaq_R4X::mqttSetAuth(const char* name, const char* pw)
@@ -727,7 +783,7 @@ bool Sodaq_R4X::mqttSetAuth(const char* name, const char* pw)
     print(pw);
     println('"');
 
-    return (readResponse(buffer, sizeof(buffer), "+UMQTT: ", UMQTT_TIMEOUT) == GSMResponseOK) && strcmp(buffer, "4,1");
+    return (readResponse(buffer, sizeof(buffer), "+UMQTT: ", UMQTT_TIMEOUT) == GSMResponseOK) && startsWith("4,1", buffer);
 }
 
 bool Sodaq_R4X::mqttSetCleanSettion(bool enabled)
@@ -737,7 +793,7 @@ bool Sodaq_R4X::mqttSetCleanSettion(bool enabled)
     print("AT+UMQTT=12,");
     println(enabled ? '1' : '0');
 
-    return (readResponse(buffer, sizeof(buffer), "+UMQTT: ", UMQTT_TIMEOUT) == GSMResponseOK) && strcmp(buffer, "12,1");
+    return (readResponse(buffer, sizeof(buffer), "+UMQTT: ", UMQTT_TIMEOUT) == GSMResponseOK) && startsWith("12,1", buffer);
 }
 
 bool Sodaq_R4X::mqttSetClientId(const char* id)
@@ -748,7 +804,7 @@ bool Sodaq_R4X::mqttSetClientId(const char* id)
     print(id);
     println('"');
 
-    return (readResponse(buffer, sizeof(buffer), "+UMQTT: ", UMQTT_TIMEOUT) == GSMResponseOK) && strcmp(buffer, "0,1");
+    return (readResponse(buffer, sizeof(buffer), "+UMQTT: ", UMQTT_TIMEOUT) == GSMResponseOK) && startsWith("0,1", buffer);
 }
 
 bool Sodaq_R4X::mqttSetInactivityTimeout(uint16_t timeout)
@@ -758,7 +814,7 @@ bool Sodaq_R4X::mqttSetInactivityTimeout(uint16_t timeout)
     print("AT+UMQTT=10,");
     println(timeout);
 
-    return (readResponse(buffer, sizeof(buffer), "+UMQTT: ", UMQTT_TIMEOUT) == GSMResponseOK) && strcmp(buffer, "10,1");
+    return (readResponse(buffer, sizeof(buffer), "+UMQTT: ", UMQTT_TIMEOUT) == GSMResponseOK) && startsWith("10,1", buffer);
 }
 
 bool Sodaq_R4X::mqttSetLocalPort(uint16_t port)
@@ -768,7 +824,7 @@ bool Sodaq_R4X::mqttSetLocalPort(uint16_t port)
     print("AT+UMQTT=1,");
     println(port);
 
-    return (readResponse(buffer, sizeof(buffer), "+UMQTT: ", UMQTT_TIMEOUT) == GSMResponseOK) && strcmp(buffer, "1,1");
+    return (readResponse(buffer, sizeof(buffer), "+UMQTT: ", UMQTT_TIMEOUT) == GSMResponseOK) && startsWith("1,1", buffer);
 }
 
 bool Sodaq_R4X::mqttSetSecureOption(bool enabled, int8_t profile)
@@ -783,7 +839,7 @@ bool Sodaq_R4X::mqttSetSecureOption(bool enabled, int8_t profile)
         println(profile);
     }
 
-    return (readResponse(buffer, sizeof(buffer), "+UMQTT: ", UMQTT_TIMEOUT) == GSMResponseOK) && strcmp(buffer, "11,1");
+    return (readResponse(buffer, sizeof(buffer), "+UMQTT: ", UMQTT_TIMEOUT) == GSMResponseOK) && startsWith("11,1", buffer);
 }
 
 bool Sodaq_R4X::mqttSetServer(const char* server, uint16_t port)
@@ -800,7 +856,7 @@ bool Sodaq_R4X::mqttSetServer(const char* server, uint16_t port)
         println('"');
     }
 
-    return (readResponse(buffer, sizeof(buffer), "+UMQTT: ", UMQTT_TIMEOUT) == GSMResponseOK) && strcmp(buffer, "2,1");
+  return (readResponse(buffer, sizeof(buffer), "+UMQTT: ", UMQTT_TIMEOUT) == GSMResponseOK) && startsWith("2,1", buffer);
 }
 
 bool Sodaq_R4X::mqttSetServerIP(const char* ip, uint16_t port)
@@ -812,12 +868,12 @@ bool Sodaq_R4X::mqttSetServerIP(const char* ip, uint16_t port)
 
     if (port > 0) {
         print("\",");
-        println(ip);
+        println(port);
     } else {
         println('"');
     }
 
-    return (readResponse(buffer, sizeof(buffer), "+UMQTT: ", UMQTT_TIMEOUT) == GSMResponseOK) && strcmp(buffer, "3,1");
+    return (readResponse(buffer, sizeof(buffer), "+UMQTT: ", UMQTT_TIMEOUT) == GSMResponseOK) && startsWith("3,1", buffer);
 }
 
 
@@ -932,31 +988,57 @@ bool Sodaq_R4X::checkURC(char* buffer)
     }
 
     int param1, param2;
+    char param3[1024];
 
-    if (sscanf(buffer, "+UFOTAS: %d,%d", &param1, &param2) == 2) { // Handle FOTA URC
+    if (sscanf(buffer, "+UFOTAS: %d,%d", &param1, &param2) == 2) {
         #ifdef DEBUG
-        uint16_t blkRm = param1;
-        uint8_t transferStatus = param2;
-
         debugPrint("Unsolicited: FOTA: ");
-        debugPrint(blkRm);
+        debugPrint(param1);
         debugPrint(", ");
-        debugPrintLn(transferStatus);
+        debugPrintLn(param2);
         #endif
 
         return true;
     }
 
     if (sscanf(buffer, "+UUSORF: %d,%d", &param1, &param2) == 2) {
-        int socketID = param1;
-        int dataLength = param2;
-
         debugPrint("Unsolicited: Socket ");
-        debugPrint(socketID);
+        debugPrint(param1);
         debugPrint(": ");
-        debugPrintLn(dataLength);
+        debugPrintLn(param2);
 
-        _pendingUDPBytes[socketID] = dataLength;
+        _pendingUDPBytes[param1] = param2;
+
+        return true;
+    }
+
+    if (sscanf(buffer, "+UUMQTTC: 1,%d", &param1) == 1) {
+        debugPrint("Unsolicited: MQTT login result: ");
+        debugPrintLn(param1);
+
+        _mqttLoginResult = param1;
+
+        return true;
+    }
+
+    if (sscanf(buffer, "+UUMQTTC: 4,%d,%d,\"%[^\"]\"", &param1, &param2, param3) == 3) {
+        debugPrint("Unsolicited: MQTT subscription result: ");
+        debugPrint(param1);
+        debugPrint(", ");
+        debugPrint(param2);
+        debugPrint(", ");
+        debugPrintLn(param3);
+
+       _mqttSubscribeReason = param1;
+
+        return true;
+    }
+
+    if (sscanf(buffer, "+UUMQTTCM: 6,%d", &param1) == 1) {
+        debugPrint("Unsolicited: MQTT pending messages:");
+        debugPrintLn(param1);
+
+        _mqttPendingMessages = param1;
 
         return true;
     }
@@ -1042,7 +1124,7 @@ GSMResponseTypes Sodaq_R4X::readResponse(char* outBuffer, size_t outMaxSize, con
 
         if (hasPrefix || (!usePrefix && useOutBuffer)) {
             if (outSize > 0 && outSize < outMaxSize - 1) {
-                outBuffer[outSize++] = NL;
+                outBuffer[outSize++] = LF;
             }
 
             if (outSize < outMaxSize - 1) {
@@ -1176,7 +1258,6 @@ bool Sodaq_R4X::startsWith(const char* pre, const char* str)
 {
     return (strncmp(pre, str, strlen(pre)) == 0);
 }
-
 
 
 /******************************************************************************

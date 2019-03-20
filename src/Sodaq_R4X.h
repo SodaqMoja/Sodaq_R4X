@@ -117,14 +117,11 @@ public:
     *****************************************************************************/
 
     bool attachGprs(uint32_t timeout = 10L * 60L * 1000);
-
     bool getCCID(char* buffer, size_t size);
     bool getEpoch(uint32_t* epoch);
     bool getFirmwareVersion(char* buffer, size_t size);
     bool getIMEI(char* buffer, size_t size);
-
     SimStatuses getSimStatus();
-
     bool execCommand(const char* command, uint32_t timeout = DEFAULT_READ_MS, char* buffer = NULL, size_t size = 0);
 
     // Returns true if the modem replies to "AT" commands without timing out.
@@ -140,7 +137,6 @@ public:
     bool isDefinedIP4();
 
     void purgeAllResponsesRead();
-
     bool setApn(const char* apn);
     bool setIndicationsActive(bool on);
     void setPin(const char* pin);
@@ -188,10 +184,14 @@ public:
 
     bool mqttLogin();
     bool mqttLogout();
+    void mqttLoop();
     bool mqttPing(const char* server);
     bool mqttPublish(const char* topic, const uint8_t* msg, size_t size, uint8_t qos = 0, uint8_t retain = 0, bool useHEX = false);
     bool mqttSubscribe(const char* filter, uint8_t qos = 0);
     bool mqttUnsubscribe(const char* filter);
+
+    uint8_t mqttGetLoginResult();
+    size_t  mqttGetPendingMessages();
 
     bool mqttSetAuth(const char* name, const char* pw);
     bool mqttSetCleanSettion(bool enabled);
@@ -203,13 +203,16 @@ public:
     bool mqttSetServerIP(const char* ip, uint16_t port);
 
 private:
-    uint8_t _cid;
-    size_t  _pendingUDPBytes[SOCKET_COUNT];
-    char*   _pin;
-
     /******************************************************************************
     * Private
     *****************************************************************************/
+
+    uint8_t _cid;
+    size_t  _mqttLoginResult;
+    size_t  _mqttPendingMessages;
+    size_t  _mqttSubscribeReason;
+    size_t  _pendingUDPBytes[SOCKET_COUNT];
+    char*   _pin;
 
     int8_t checkApn(const char* requiredAPN); // -1: error, 0: ip not valid => need attach, 1: valid ip
     bool   checkBandMask(const char* requiredURAT, const char* requiredBankMask);
