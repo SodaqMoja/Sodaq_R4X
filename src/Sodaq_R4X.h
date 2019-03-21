@@ -23,7 +23,7 @@
 
 #define DEFAULT_READ_MS                 5000
 #define SODAQ_MAX_UDP_SEND_MESSAGE_SIZE 512
-#define SODAQ_R4X_DEFAULT_CID           0
+#define SODAQ_R4X_DEFAULT_CID           1
 #define SODAQ_R4X_DEFAULT_UDP_TIMOUT_MS 15000
 #define SODAQ_R4X_MAX_UDP_BUFFER        256
 
@@ -182,16 +182,17 @@ public:
     * MQTT
     *****************************************************************************/
 
-    bool mqttLogin();
+    bool mqttLogin(uint32_t timeout = 3 * 60 * 1000);
     bool mqttLogout();
     void mqttLoop();
     bool mqttPing(const char* server);
     bool mqttPublish(const char* topic, const uint8_t* msg, size_t size, uint8_t qos = 0, uint8_t retain = 0, bool useHEX = false);
-    bool mqttSubscribe(const char* filter, uint8_t qos = 0);
+    uint16_t mqttReadMessages(char* buffer, size_t size, uint32_t timeout = 60 * 1000);
+    bool mqttSubscribe(const char* filter, uint8_t qos = 0, uint32_t timeout = 30 * 1000);
     bool mqttUnsubscribe(const char* filter);
 
-    uint8_t mqttGetLoginResult();
-    size_t  mqttGetPendingMessages();
+    int8_t  mqttGetLoginResult();
+    int16_t mqttGetPendingMessages();
 
     bool mqttSetAuth(const char* name, const char* pw);
     bool mqttSetCleanSettion(bool enabled);
@@ -208,9 +209,9 @@ private:
     *****************************************************************************/
 
     uint8_t _cid;
-    size_t  _mqttLoginResult;
-    size_t  _mqttPendingMessages;
-    size_t  _mqttSubscribeReason;
+    int8_t  _mqttLoginResult;
+    int16_t _mqttPendingMessages;
+    int8_t  _mqttSubscribeReason;
     size_t  _pendingUDPBytes[SOCKET_COUNT];
     char*   _pin;
 

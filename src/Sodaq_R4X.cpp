@@ -95,9 +95,9 @@ Sodaq_R4X::Sodaq_R4X() :
     _lastRSSI            = 0;
     _minRSSI             = -113;  // dBm
     _onoff               = 0;
-    _mqttLoginResult     = 0xFF;
-    _mqttPendingMessages = 0;
-    _mqttSubscribeReason = 0xFF;
+    _mqttLoginResult     = -1;
+    _mqttPendingMessages = -1;
+    _mqttSubscribeReason = -1;
     _pin                 = 0;
 
     memset(_pendingUDPBytes, 0, sizeof(_pendingUDPBytes));
@@ -638,21 +638,22 @@ bool Sodaq_R4X::waitForUDPResponse(uint8_t socketID, uint32_t timeoutMS)
 * MQTT
 *****************************************************************************/
 
-bool Sodaq_R4X::mqttLogin()
+bool Sodaq_R4X::mqttLogin(uint32_t timeout)
 {
     char buffer[16];
 
-    _mqttLoginResult = 0xFF;
+    _mqttLoginResult = -1;
 
     println("AT+UMQTTC=1");
 
-    if ((readResponse(buffer, sizeof(buffer), "+UMQTTC: ", UMQTT_TIMEOUT) != GSMResponseOK) || !startsWith("1,1", buffer)) {
+    uint32_t startTime = millis();
+
+    if ((readResponse(buffer, sizeof(buffer), "+UMQTTC: ", timeout) != GSMResponseOK) || !startsWith("1,1", buffer)) {
         return false;
     }
 
     // check URC synchronously
-    uint32_t startTime = millis();
-    while ((_mqttLoginResult == 0xFF) && (millis() - startTime) < 10000) {
+    while ((_mqttLoginResult == -1) && !is_timedout(startTime, timeout)) {
         mqttLoop();
     }
 
@@ -727,11 +728,79 @@ bool Sodaq_R4X::mqttPublish(const char* topic, const uint8_t* msg, size_t size, 
     return (readResponse(buffer, sizeof(buffer), "+UMQTTC: ", UMQTT_TIMEOUT) == GSMResponseOK) && startsWith("2,1", buffer);
 }
 
-bool Sodaq_R4X::mqttSubscribe(const char* filter, uint8_t qos)
+// returns number of read messages
+uint16_t Sodaq_R4X::mqttReadMessages(char* buffer, size_t size, uint32_t timeout)
+{
+    if (buffer == NULL || size == 0) {
+        return 0;
+    }
+
+    char bufferIn[16];
+
+    _mqttPendingMessages = -1;
+
+    println("AT+UMQTTC=6");
+
+    uint32_t startTime = millis();
+
+    if ((readResponse(bufferIn, sizeof(bufferIn), "+UMQTTC: ", UMQTT_TIMEOUT) != GSMResponseOK) || !startsWith("6,1", bufferIn)) {
+        return 0;
+    }
+
+    // check URC synchronously
+    while ((_mqttPendingMessages == -1) && !is_timedout(startTime, timeout)) {
+        mqttLoop();
+    }
+
+    if (_mqttPendingMessages <= 0) {
+        return 0;
+    }
+
+    uint16_t messages = 0;
+    uint16_t outSize  = 0;
+
+    while (messages < _mqttPendingMessages && !is_timedout(startTime, timeout)) {
+        int count = readLn(_inputBuffer, _inputBufferSize, 250);
+        sodaq_wdt_reset();
+
+        if (count <= 0) {
+            continue;
+        }
+
+        bool b = startsWith("Msg:", _inputBuffer);
+        if (b) { messages++; }
+
+        if (b || startsWith("Topic:", _inputBuffer)) {
+            if (outSize > 0 && outSize < size) {
+                buffer[outSize++] = LF;
+            }
+
+            if (outSize >= size - 1) {
+                break;
+            }
+
+            count -= b ? 4 : 6;
+
+            if (outSize + (uint16_t)count > size - 1) {
+                count = size - 1 - outSize;
+            }
+
+            memcpy(buffer + outSize, _inputBuffer + (b ? 4 : 6), count);
+            outSize += count;
+            buffer[outSize] = 0;
+        }
+    }
+
+    _mqttPendingMessages = 0;
+
+    return messages;
+}
+
+bool Sodaq_R4X::mqttSubscribe(const char* filter, uint8_t qos, uint32_t timeout)
 {
     char buffer[16];
 
-    _mqttSubscribeReason = 0xFF;
+    _mqttSubscribeReason = -1;
 
     print("AT+UMQTTC=4,");
     print(qos);
@@ -739,13 +808,14 @@ bool Sodaq_R4X::mqttSubscribe(const char* filter, uint8_t qos)
     print(filter);
     println('"');
 
+    uint32_t startTime = millis();
+
     if ((readResponse(buffer, sizeof(buffer), "+UMQTTC: ", UMQTT_TIMEOUT) != GSMResponseOK) || !startsWith("4,1", buffer)) {
         return false;
     }
 
     // check URC synchronously
-    uint32_t startTime = millis();
-    while ((_mqttSubscribeReason == 0xFF) && (millis() - startTime) < 10000) {
+    while ((_mqttSubscribeReason == -1) && !is_timedout(startTime, timeout)) {
         mqttLoop();
     }
 
@@ -763,12 +833,12 @@ bool Sodaq_R4X::mqttUnsubscribe(const char* filter)
     return (readResponse(buffer, sizeof(buffer), "+UMQTTC: ", UMQTT_TIMEOUT) == GSMResponseOK) && startsWith("5,1", buffer);
 }
 
-uint8_t Sodaq_R4X::mqttGetLoginResult()
+int8_t Sodaq_R4X::mqttGetLoginResult()
 {
     return _mqttLoginResult;
 }
 
-size_t Sodaq_R4X::mqttGetPendingMessages()
+int16_t Sodaq_R4X::mqttGetPendingMessages()
 {
     return _mqttPendingMessages;
 }

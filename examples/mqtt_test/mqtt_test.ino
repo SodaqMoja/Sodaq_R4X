@@ -37,7 +37,22 @@ void setup()
     while (!CONSOLE_STREAM);
     CONSOLE_STREAM.println("Booting up...");
 
-    isReady = initNetwork() && initMQTT();
+    MODEM_STREAM.begin(r4x.getDefaultBaudrate());
+    r4x.setDiag(CONSOLE_STREAM);
+    r4x.init(&saraR4xxOnOff, MODEM_STREAM);
+
+    isReady = r4x.connect(CURRENT_APN, CURRENT_URAT);
+    CONSOLE_STREAM.println(isReady ? "Network connected" : "Network connection failed");
+
+    // r4x.execCommand("ATI");
+    // r4x.execCommand("ATI9");
+    // r4x.execCommand("AT+CPSMS?");
+    // r4x.execCommand("AT+UPSV?");
+
+    if (isReady) {
+        isReady = r4x.mqttSetServer(MQTT_SERVER_NAME, MQTT_SERVER_PORT) && r4x.mqttLogin();
+        CONSOLE_STREAM.println(isReady ? "MQTT connected" : "MQTT failed");
+    }
 
     if (isReady) {
         uint8_t buf0[] = {'t', 'e', 's', 't', '0'};
@@ -48,54 +63,31 @@ void setup()
         r4x.mqttSubscribe("/home/test/#");
     }
 
-    CONSOLE_STREAM.println("Booting done");
+    CONSOLE_STREAM.println("Setup done");
 }
 
 void loop()
 {
-    if (!isReady) {
-        return;
-    }
-
-    // TODO - remove it
     if (CONSOLE_STREAM.available()) {
         int i = CONSOLE_STREAM.read();
         CONSOLE_STREAM.write(i);
         MODEM_STREAM.write(i);
     }
 
-    r4x.mqttLoop();
-
     // if (MODEM_STREAM.available()) {
     //     CONSOLE_STREAM.write(MODEM_STREAM.read());
     // }
 
-    // TODO: check messages (+UUMQTTCM)
-}
+    if (isReady) {
+        r4x.mqttLoop();
 
-bool initNetwork()
-{
-    MODEM_STREAM.begin(r4x.getDefaultBaudrate());
+        if (r4x.mqttGetPendingMessages() > 0) {
+            char buffer[2048];
+            uint16_t i = r4x.mqttReadMessages(buffer, sizeof(buffer));
 
-    r4x.setDiag(CONSOLE_STREAM);
-    r4x.init(&saraR4xxOnOff, MODEM_STREAM);
-
-    bool b = r4x.connect(CURRENT_APN, CURRENT_URAT);
-
-    CONSOLE_STREAM.println(b ? "Network connected" : "Network connection failed");
-
-    return true;
-}
-
-bool initMQTT()
-{
-    bool b = r4x.mqttSetServer(MQTT_SERVER_NAME, MQTT_SERVER_PORT);
-
-    if (b) {
-        b = r4x.mqttLogin();
+            CONSOLE_STREAM.print("Read messages:");
+            CONSOLE_STREAM.println(i);
+            CONSOLE_STREAM.println(buffer);
+        }
     }
-
-    CONSOLE_STREAM.println(b ? "MQTT connected" : "MQTT failed");
-
-    return b;
 }
