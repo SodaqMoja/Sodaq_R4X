@@ -56,6 +56,9 @@
 #define HEX_CHAR_TO_NIBBLE(c)  ((c >= 'A') ? (c - 'A' + 0x0A) : (c - '0'))
 #define HEX_PAIR_TO_BYTE(h, l) ((HEX_CHAR_TO_NIBBLE(h) << 4) + HEX_CHAR_TO_NIBBLE(l))
 
+#define HTTP_RECEIVE_FILENAME  "http_last_response_0"
+#define HTTP_SEND_TMP_FILENAME "http_tmp_put_0"
+
 #define STR_HELPER(x) #x
 #define STR(x) STR_HELPER(x)
 
@@ -718,7 +721,8 @@ bool Sodaq_R4X::mqttPublish(const char* topic, const uint8_t* msg, size_t size, 
         if (useHEX) {
             print(static_cast<char>(NIBBLE_TO_HEX_CHAR(HIGH_NIBBLE(msg[i]))));
             print(static_cast<char>(NIBBLE_TO_HEX_CHAR(LOW_NIBBLE(msg[i]))));
-        } else {
+        }
+        else {
             print((char)msg[i]);
         }
     }
@@ -922,7 +926,8 @@ bool Sodaq_R4X::mqttSetServer(const char* server, uint16_t port)
     if (port > 0) {
         print("\",");
         println(port);
-    } else {
+    }
+    else {
         println('"');
     }
 
@@ -939,11 +944,248 @@ bool Sodaq_R4X::mqttSetServerIP(const char* ip, uint16_t port)
     if (port > 0) {
         print("\",");
         println(port);
-    } else {
+    }
+    else {
         println('"');
     }
 
     return (readResponse(buffer, sizeof(buffer), "+UMQTT: ", UMQTT_TIMEOUT) == GSMResponseOK) && startsWith("3,1", buffer);
+}
+
+
+/******************************************************************************
+* HTTP
+*****************************************************************************/
+
+/**
+* A convenience wrapper function to just a simple HTTP GET
+*
+* If the request is handled properly it will return the contents
+* without the header.
+* The header is checked for presence of "HTTP/1.1 200 OK" ????
+* The header is skipped, that is, upto and including two CRLF's,
+* the remainder is returned in the buffer.
+*/
+uint32_t Sodaq_R4X::httpGet(const char* server, uint16_t port, const char* endpoint,
+                            char* buffer, size_t bufferSize)
+{
+    // First just handle the request and let the file be read into the UBlox file system
+    uint32_t file_size = httpRequest(server, port, endpoint, GET, 0, 0);
+    if (file_size == 0) {
+        return 0;
+    }
+
+    // Find out the header size
+    _httpGetHeaderSize = httpGetHeaderSize(HTTP_RECEIVE_FILENAME);
+
+    debugPrint("[httpGet] header size: ");
+    debugPrintLn(_httpGetHeaderSize);
+
+    if (_httpGetHeaderSize == 0) {
+        return 0;
+    }
+
+    if (!buffer) {
+        return file_size - _httpGetHeaderSize;
+    }
+
+    // Fill the buffer starting from the header
+    return readFilePartial(HTTP_RECEIVE_FILENAME, (uint8_t*)buffer, bufferSize, _httpGetHeaderSize);
+}
+
+/**
+* Return the size of the HTTP response header
+*
+* This function searches from the start of the file until two CRLFs have
+* been seen.
+* The file is left unmodified.
+*/
+uint32_t Sodaq_R4X::httpGetHeaderSize(const char* filename)
+{
+    uint32_t file_size;
+
+    bool status = getFileSize(filename, file_size);
+    if (!status) {
+        return 0;
+    }
+
+    int state = 0; // 0 nothing, 1=CR, 2=CRLF, 3=CRLFCR, 4=CRLFCRLF
+    uint8_t buffer[64];
+    uint32_t offset = 0;
+
+    while (offset < file_size && state != 4) {
+        size_t size;
+        size = readFilePartial(filename, buffer, sizeof(buffer), offset);
+
+        size_t ix;
+        for (ix = 0; state != 4 && ix < sizeof(buffer); ix++) {
+            if ((state == 0 || state == 2) && buffer[ix] == '\r') {
+                state++;
+            }
+            else if ((state == 1 || state == 3) && buffer[ix] == '\n') {
+                state++;
+            }
+            else {
+                state = 0;
+            }
+        }
+
+        if (state == 4) {
+            return offset + ix;
+        }
+
+        offset += size;
+    }
+
+    return 0;
+}
+
+size_t Sodaq_R4X::httpGetPartial(uint8_t* buffer, size_t size, uint32_t offset)
+{
+    if (_httpGetHeaderSize == 0) {
+        _httpGetHeaderSize = httpGetHeaderSize(HTTP_RECEIVE_FILENAME);
+    }
+
+    if (_httpGetHeaderSize == 0) {
+        // Don't trust a file without HTTP response header
+        return 0;
+    }
+
+    return readFilePartial(HTTP_RECEIVE_FILENAME, buffer, size, _httpGetHeaderSize + offset);
+}
+
+// Creates an HTTP request using the (optional) given buffer and
+// (optionally) returns the received data.
+// endpoint should include the initial "/".
+size_t Sodaq_R4X::httpRequest(const char* server, uint16_t port,
+                              const char* endpoint, HttpRequestTypes requestType,
+                              char* responseBuffer, size_t responseSize,
+                              const char* sendBuffer, size_t sendSize)
+{
+    static uint8_t mapping[] = {
+        4, // 0 POST
+        1, // 1 GET
+        0, // 2 HEAD
+        2, // 3 DELETE
+        3, // 4 PUT
+    };
+
+    // reset http profile 0
+    println("AT+UHTTP=0");
+    if (readResponse() != GSMResponseOK) {
+        return 0;
+    }
+
+    deleteFile(HTTP_RECEIVE_FILENAME); // cleanup the file first (if exists)
+
+    if (requestType >= HttpRequestTypesMAX) {
+        debugPrintLn(DEBUG_STR_ERROR "Unknown request type!");
+        return 0;
+    }
+
+    // set server host name
+    print("AT+UHTTP=0,");
+    print(isValidIPv4(server) ? "0,\"" : "1,\"");
+    print(server);
+    println("\"");
+    if (readResponse() != GSMResponseOK) {
+        return 0;
+    }
+
+    // set port
+    if (port != 80) {
+        print("AT+UHTTP=0,5,");
+        println(port);
+
+        if (readResponse() != GSMResponseOK) {
+            return 0;
+        }
+    }
+
+    // before starting the actual http request, create any files needed in the fs of the modem
+    // that way there is a chance to abort sending the http req command in case of an fs error
+    if (requestType == PUT || requestType == POST) {
+        if (!sendBuffer || sendSize == 0) {
+            debugPrintLn(DEBUG_STR_ERROR "There is no sendBuffer or sendSize set!");
+            return 0;
+        }
+
+        deleteFile(HTTP_SEND_TMP_FILENAME); // cleanup the file first (if exists)
+
+        if (!writeFile(HTTP_SEND_TMP_FILENAME, (uint8_t*)sendBuffer, sendSize)) {
+            debugPrintLn(DEBUG_STR_ERROR "Could not create the http tmp file!");
+            return 0;
+        }
+    }
+
+    // reset the success bit before calling a new request
+    _httpRequestSuccessBit[requestType] = TriBoolUndefined;
+
+    print("AT+UHTTPC=0,");
+    print(requestType < sizeof(mapping) ? mapping[requestType] : 1);
+    print(",\"");
+    print(endpoint);
+    print("\",\"\""); // empty filename = default = "http_last_response_0" (DEFAULT_HTTP_RECEIVE_FILENAME)
+
+                      // NOTE: a file that includes the buffer to send has been created already
+    if (requestType == PUT) {
+        println(",\"" HTTP_SEND_TMP_FILENAME "\""); // param1: file from filesystem to send
+    }
+    else if (requestType == POST) {
+        print(",\"" HTTP_SEND_TMP_FILENAME "\""); // param1: file from filesystem to send
+        println(",1"); // param2: content type, 1=text/plain
+                       // TODO consider making the content type a parameter
+    }
+
+    if (readResponse() != GSMResponseOK) {
+        return 0;
+    }
+
+    // check for success while checking URCs
+    // This loop relies on readResponse being called via isAlive()
+    uint32_t start = millis();
+    uint32_t delay_count = 50;
+    while ((_httpRequestSuccessBit[requestType] == TriBoolUndefined) && !is_timedout(start, /*TODO*/60000)) { /*5000*/
+        //TODO: isAlive();
+        //TODO: temporary solution! don't use it on production!
+        uint32_t size;
+        getFileSize(HTTP_RECEIVE_FILENAME, size);
+        println("AT+UHTTPER=0");
+        if (readResponse(NULL, 100) == GSMResponseOK) {
+            break;
+        }
+
+        sodaq_wdt_safe_delay(delay_count);
+        // Next time wait a little longer, but not longer than 5 seconds
+        if (delay_count < 5000) {
+            delay_count += 250;
+        }
+    }
+
+    if (_httpRequestSuccessBit[requestType] == TriBoolTrue) {
+        uint32_t file_size;
+        if (!getFileSize(HTTP_RECEIVE_FILENAME, file_size)) {
+            debugPrintLn(DEBUG_STR_ERROR "Could not determine file size");
+            return 0;
+        }
+        if (responseBuffer && responseSize > 0 && file_size < responseSize) {
+            return readFile(HTTP_RECEIVE_FILENAME, (uint8_t*)responseBuffer, responseSize);
+        }
+        else {
+            // On AVR this can give size_t overflow
+            return file_size;
+        }
+    }
+    else if (_httpRequestSuccessBit[requestType] == TriBoolFalse) {
+        debugPrintLn(DEBUG_STR_ERROR "An error occurred with the http request!");
+        return 0;
+    }
+    else {
+        debugPrintLn(DEBUG_STR_ERROR "Timed out waiting for a response for the http request!");
+        return 0;
+    }
+
+    return 0;
 }
 
 
@@ -1113,6 +1355,39 @@ bool Sodaq_R4X::checkURC(char* buffer)
         return true;
     }
 
+    if (sscanf(buffer, "+UHTTPER: 0,%*d,%d", &param1) == 1) {
+        _httpRequestSuccessBit[1] = param1 == 0 ? TriBoolTrue : TriBoolFalse;
+
+        return true;
+    }
+
+    if (sscanf(buffer, "+UUHTTPCR: 0,%d,%d", &param1, &param2) == 2) {
+        static uint8_t mapping[] = {
+            HEAD,   // 0
+            GET,    // 1
+            DELETE, // 2
+            PUT,    // 3
+            POST,   // 4
+        };
+
+        int requestType = param1 < (int)sizeof(mapping) ? mapping[param1] : -1;
+        if (requestType >= 0) {
+            debugPrint("HTTP Result for request type ");
+            debugPrint(requestType);
+            debugPrint(": ");
+            debugPrintLn(param2);
+
+            if (param2 == 0) {
+                _httpRequestSuccessBit[requestType] = TriBoolFalse;
+            }
+            else if (param2 == 1) {
+                _httpRequestSuccessBit[requestType] = TriBoolTrue;
+            }
+        }
+
+        return true;
+    }
+
     return false;
 }
 
@@ -1138,6 +1413,64 @@ bool Sodaq_R4X::doSIMcheck()
     }
 
     return false;
+}
+
+bool Sodaq_R4X::isValidIPv4(const char* str)
+{
+    uint8_t  segs  = 0; // Segment count
+    uint8_t  chcnt = 0; // Character count within segment
+    uint16_t accum = 0; // Accumulator for segment
+
+    if (!str) {
+        return false;
+    }
+
+    // Process every character in string
+    while (*str != '\0') {
+        // Segment changeover
+        if (*str == '.') {
+            // Must have some digits in segment
+            if (chcnt == 0) {
+                return false;
+            }
+
+            // Limit number of segments
+            if (++segs == 4) {
+                return false;
+            }
+
+            // Reset segment values and restart loop
+            chcnt = accum = 0;
+            str++;
+            continue;
+        }
+
+        // Check numeric
+        if ((*str < '0') || (*str > '9')) {
+            return false;
+        }
+
+        // Accumulate and check segment
+        if ((accum = accum * 10 + *str - '0') > 255) {
+            return false;
+        }
+
+        // Advance other segment specific stuff and continue loop
+        chcnt++;
+        str++;
+    }
+
+    // Check enough segments and enough characters in last segment
+    if (segs != 3) {
+        return false;
+    }
+
+    if (chcnt == 0) {
+        return false;
+    }
+
+    // Address OK
+    return true;
 }
 
 /**
@@ -1300,6 +1633,199 @@ bool Sodaq_R4X::waitForSignalQuality(uint32_t timeout)
     }
 
     return false;
+}
+
+
+/******************************************************************************
+* Files
+*****************************************************************************/
+
+bool Sodaq_R4X::deleteFile(const char* filename)
+{
+    // TODO escape filename characters
+    print("AT+UDELFILE=\"");
+    print(filename);
+    println('"');
+
+    return (readResponse() == GSMResponseOK);
+}
+
+bool Sodaq_R4X::getFileSize(const char* filename, uint32_t& size)
+{
+    size = 0;
+
+    print("AT+ULSTFILE=2,\"");
+    print(filename);
+    println('"');
+
+    char buffer[32];
+
+    if (readResponse(buffer, sizeof(buffer), "+ULSTFILE: ") != GSMResponseOK) {
+        return false;
+    }
+
+    return (sscanf(buffer, "%lu", &size) == 1);
+}
+
+size_t Sodaq_R4X::readFile(const char* filename, uint8_t* buffer, size_t size)
+{
+    // TODO escape filename characters { '"', ',', }
+
+    if (!buffer || size == 0) {
+        return 0;
+    }
+
+    // first, make sure the buffer is sufficient
+    uint32_t filesize = 0;
+    if (!getFileSize(filename, filesize)) {
+        debugPrintLn(DEBUG_STR_ERROR "Could not determine file size");
+        return 0;
+    }
+
+    if (filesize > size) {
+        debugPrintLn(DEBUG_STR_ERROR "The buffer is not big enough to store the file");
+        return 0;
+    }
+
+    print("AT+URDFILE=\"");
+    print(filename);
+    println('"');
+
+    // override normal parsing process and explicitly read characters here
+    // to be able to also read terminator characters within files
+    char checkChar = 0;
+
+    // reply identifier
+    size_t len = readBytesUntil(' ', _inputBuffer, _inputBufferSize);
+    if (len == 0 || strstr(_inputBuffer, "+URDFILE:") == NULL) {
+        debugPrintLn(DEBUG_STR_ERROR "+URDFILE literal is missing!");
+        return 0;
+    }
+
+    // filename
+    len = readBytesUntil(',', _inputBuffer, _inputBufferSize);
+    // TODO check filename after removing quotes and escaping chars
+
+    // filesize
+    len = readBytesUntil(',', _inputBuffer, _inputBufferSize);
+    filesize = 0; // reset the var before reading from reply string
+    if (sscanf(_inputBuffer, "%lu", &filesize) != 1) {
+        debugPrintLn(DEBUG_STR_ERROR "Could not parse the file size!");
+        return 0;
+    }
+    if (filesize == 0 || filesize > size) {
+        debugPrintLn(DEBUG_STR_ERROR "Size error!");
+        return 0;
+    }
+
+    // opening quote character
+    checkChar = timedRead();
+    if (checkChar != '"') {
+        debugPrintLn(DEBUG_STR_ERROR "Missing starting character (quote)!");
+        return 0;
+    }
+
+    // actual file buffer, written directly to the provided result buffer
+    len = readBytes(buffer, filesize);
+    if (len != filesize) {
+        debugPrintLn(DEBUG_STR_ERROR "File size error!");
+        return 0;
+    }
+
+    // closing quote character
+    checkChar = timedRead();
+    if (checkChar != '"') {
+        debugPrintLn(DEBUG_STR_ERROR "Missing termination character (quote)!");
+        return 0;
+    }
+
+    // read final OK response from modem and return the filesize
+    return (readResponse() == GSMResponseOK ? filesize : 0);
+}
+
+
+size_t Sodaq_R4X::readFilePartial(const char* filename, uint8_t* buffer, size_t size, uint32_t offset)
+{
+    // TODO escape filename characters { '"', ',', }
+
+    if (!buffer || size == 0) {
+        return 0;
+    }
+
+    print("AT+URDBLOCK=\"");
+    print(filename);
+    print("\",");
+    print(offset);
+    print(',');
+    println(size);
+
+    // reply identifier
+    //   +URDBLOCK: http_last_response_0,86,"..."
+    // where 86 is an example of the size
+    size_t len = readBytesUntil(' ', _inputBuffer, _inputBufferSize);
+    if (len == 0 || strstr(_inputBuffer, "+URDBLOCK:") == NULL) {
+        debugPrintLn(DEBUG_STR_ERROR "+URDBLOCK literal is missing!");
+        return 0;
+    }
+
+    // skip filename
+    len = readBytesUntil(',', _inputBuffer, _inputBufferSize);
+    // TODO check filename. Note, there are no quotes
+
+    // read the number of bytes
+    len = readBytesUntil(',', _inputBuffer, _inputBufferSize);
+    uint32_t blocksize = 0; // reset the var before reading from reply string
+    if (sscanf(_inputBuffer, "%lu", &blocksize) != 1) {
+        debugPrintLn(DEBUG_STR_ERROR "Could not parse the block size!");
+        return 0;
+    }
+    if (blocksize == 0 || blocksize > size) {
+        debugPrintLn(DEBUG_STR_ERROR "Size error!");
+        return 0;
+    }
+
+    // opening quote character
+    char quote = timedRead();
+    if (quote != '"') {
+        debugPrintLn(DEBUG_STR_ERROR "Missing starting character (quote)!");
+        return 0;
+    }
+
+    // actual file buffer, written directly to the provided result buffer
+    len = readBytes(buffer, blocksize);
+    if (len != blocksize) {
+        debugPrintLn(DEBUG_STR_ERROR "File size error!");
+        return 0;
+    }
+
+    // closing quote character
+    quote = timedRead();
+    if (quote != '"') {
+        debugPrintLn(DEBUG_STR_ERROR "Missing termination character (quote)!");
+        return 0;
+    }
+
+    // read final OK response from modem and return the filesize
+    return (readResponse() == GSMResponseOK ? blocksize : 0);
+}
+
+bool Sodaq_R4X::writeFile(const char* filename, const uint8_t* buffer, size_t size)
+{
+    // TODO escape filename characters
+    print("AT+UDWNFILE=\"");
+    print(filename);
+    print("\",");
+    println(size);
+
+    if (readResponse() != GSMResponsePrompt) {
+        return false;
+    }
+
+    for (size_t i = 0; i < size; i++) {
+        print(buffer[i]);
+    }
+
+    return (readResponse() == GSMResponseOK);
 }
 
 

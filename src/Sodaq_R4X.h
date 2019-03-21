@@ -46,12 +46,30 @@ enum GSMResponseTypes {
     GSMResponseEmpty = 5
 };
 
+enum HttpRequestTypes {
+    POST = 0,
+    GET,
+    HEAD,
+    DELETE,
+    PUT,
+    HttpRequestTypesMAX
+};
+
 enum SimStatuses {
     SimStatusUnknown = 0,
     SimMissing,
     SimNeedsPin,
     SimReady,
 };
+
+enum TriBoolStates
+{
+    TriBoolFalse,
+    TriBoolTrue,
+    TriBoolUndefined
+};
+
+typedef TriBoolStates tribool_t;
 
 #define UNUSED(x) (void)(x)
 
@@ -203,17 +221,45 @@ public:
     bool mqttSetServer(const char* server, uint16_t port);
     bool mqttSetServerIP(const char* ip, uint16_t port);
 
+
+    /******************************************************************************
+    * HTTP
+    *****************************************************************************/
+
+    // Creates an HTTP GET request and optionally returns the received data.
+    // Note. Endpoint should include the initial "/".
+    // The UBlox device stores the received data in http_last_response_<profile_id>
+    uint32_t httpGet(const char* server, uint16_t port, const char* endpoint,
+                     char* buffer, size_t bufferSize);
+
+    // Determine HTTP header size
+    uint32_t httpGetHeaderSize(const char* filename);
+
+    // Return a partial result of the previous HTTP Request (GET or POST)
+    // Offset 0 is the byte directly after the HTTP Response header
+    size_t httpGetPartial(uint8_t* buffer, size_t size, uint32_t offset);
+
+    // Creates an HTTP request using the (optional) given buffer and
+    // (optionally) returns the received data.
+    // endpoint should include the initial "/".
+    size_t httpRequest(const char* server, uint16_t port, const char* endpoint,
+                       HttpRequestTypes requestType = HttpRequestTypes::GET,
+                       char* responseBuffer = NULL, size_t responseSize = 0,
+                       const char* sendBuffer = NULL, size_t sendSize = 0);
+
 private:
     /******************************************************************************
     * Private
     *****************************************************************************/
 
-    uint8_t _cid;
-    int8_t  _mqttLoginResult;
-    int16_t _mqttPendingMessages;
-    int8_t  _mqttSubscribeReason;
-    size_t  _pendingUDPBytes[SOCKET_COUNT];
-    char*   _pin;
+    uint8_t   _cid;
+    uint32_t  _httpGetHeaderSize;
+    tribool_t _httpRequestSuccessBit[HttpRequestTypesMAX];
+    int8_t    _mqttLoginResult;
+    int16_t   _mqttPendingMessages;
+    int8_t    _mqttSubscribeReason;
+    size_t    _pendingUDPBytes[SOCKET_COUNT];
+    char*     _pin;
 
     int8_t checkApn(const char* requiredAPN); // -1: error, 0: ip not valid => need attach, 1: valid ip
     bool   checkBandMask(const char* requiredURAT, const char* requiredBankMask);
@@ -222,6 +268,7 @@ private:
     bool   checkUrat(const char* requiredURAT);
     bool   checkURC(char* buffer);
     bool   doSIMcheck();
+    bool   isValidIPv4(const char* str);
 
     GSMResponseTypes readResponse(char* outBuffer = NULL, size_t outMaxSize = 0, const char* prefix = NULL,
                                   uint32_t timeout = DEFAULT_READ_MS);
@@ -230,6 +277,17 @@ private:
     bool   setSimPin(const char* simPin);
     size_t socketReceive(uint8_t socketID, SaraN2UDPPacketMetadata* packet, char* buffer, size_t size);
     bool   waitForSignalQuality(uint32_t timeout = 5L * 60L * 1000);
+
+
+    /******************************************************************************
+    * Files
+    *****************************************************************************/
+
+    bool   deleteFile(const char* filename);
+    bool   getFileSize(const char* filename, uint32_t& size);
+    size_t readFile(const char* filename, uint8_t* buffer, size_t size);
+    size_t readFilePartial(const char* filename, uint8_t* buffer, size_t size, uint32_t offset);
+    bool   writeFile(const char* filename, const uint8_t* buffer, size_t size);
 
 
     /******************************************************************************
