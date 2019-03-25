@@ -2137,18 +2137,21 @@ size_t Sodaq_R4X::readLn(char* buffer, size_t size, uint32_t timeout)
 
 Sodaq_SARA_R4XX_OnOff::Sodaq_SARA_R4XX_OnOff()
 {
+    #ifdef PIN_SARA_ENABLE
     // First write the output value, and only then set the output mode.
     digitalWrite(SARA_ENABLE, LOW);
     pinMode(SARA_ENABLE, OUTPUT);
 
     digitalWrite(SARA_TX_ENABLE, LOW);
     pinMode(SARA_TX_ENABLE, OUTPUT);
+    #endif
 
     _onoff_status = false;
 }
 
 void Sodaq_SARA_R4XX_OnOff::on()
 {
+    #ifdef PIN_SARA_ENABLE
     digitalWrite(SARA_ENABLE, HIGH);
     digitalWrite(SARA_TX_ENABLE, HIGH);
 
@@ -2158,10 +2161,12 @@ void Sodaq_SARA_R4XX_OnOff::on()
     pinMode(SARA_R4XX_TOGGLE, INPUT);
 
     _onoff_status = true;
+    #endif
 }
 
 void Sodaq_SARA_R4XX_OnOff::off()
 {
+    #ifdef PIN_SARA_ENABLE
     digitalWrite(SARA_ENABLE, LOW);
     digitalWrite(SARA_TX_ENABLE, LOW);
 
@@ -2169,6 +2174,7 @@ void Sodaq_SARA_R4XX_OnOff::off()
     // Let's wait a little, but not too long
     delay(50);
     _onoff_status = false;
+    #endif
 }
 
 bool Sodaq_SARA_R4XX_OnOff::isOn()
