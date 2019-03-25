@@ -1,14 +1,14 @@
 /*
     Copyright (c) 2019 Sodaq.  All rights reserved.
 
-    This file is part of Sodaq_nbIOT.
+    This file is part of Sodaq_R4X.
 
-    Sodaq_nbIOT is free software: you can redistribute it and/or modify
+    Sodaq_R4X is free software: you can redistribute it and/or modify
     it under the terms of the GNU Lesser General Public License as
     published by the Free Software Foundation, either version 3 of
     the License, or(at your option) any later version.
 
-    Sodaq_nbIOT is distributed in the hope that it will be useful,
+    Sodaq_R4X is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
     GNU Lesser General Public License for more details.
@@ -230,7 +230,7 @@ public:
     // Note. Endpoint should include the initial "/".
     // The UBlox device stores the received data in http_last_response_<profile_id>
     uint32_t httpGet(const char* server, uint16_t port, const char* endpoint,
-                     char* buffer, size_t bufferSize);
+                     char* buffer, size_t bufferSize, uint32_t timeout = 60000, bool useURC = true);
 
     // Determine HTTP header size
     uint32_t httpGetHeaderSize(const char* filename);
@@ -245,7 +245,20 @@ public:
     size_t httpRequest(const char* server, uint16_t port, const char* endpoint,
                        HttpRequestTypes requestType = HttpRequestTypes::GET,
                        char* responseBuffer = NULL, size_t responseSize = 0,
-                       const char* sendBuffer = NULL, size_t sendSize = 0);
+                       const char* sendBuffer = NULL, size_t sendSize = 0, uint32_t timeout = 60000, bool useURC = true);
+
+    /******************************************************************************
+    * Files
+    *****************************************************************************/
+
+    bool   deleteFile(const char* filename);
+    bool   getFileSize(const char* filename, uint32_t& size);
+    size_t readFile(const char* filename, uint8_t* buffer, size_t size);
+    size_t readFilePartial(const char* filename, uint8_t* buffer, size_t size, uint32_t offset);
+
+    // If the file already exists, the data will be appended to the file already stored in the file system.
+    bool   writeFile(const char* filename, const uint8_t* buffer, size_t size);
+
 
 private:
     /******************************************************************************
@@ -277,17 +290,6 @@ private:
     bool   setSimPin(const char* simPin);
     size_t socketReceive(uint8_t socketID, SaraN2UDPPacketMetadata* packet, char* buffer, size_t size);
     bool   waitForSignalQuality(uint32_t timeout = 5L * 60L * 1000);
-
-
-    /******************************************************************************
-    * Files
-    *****************************************************************************/
-
-    bool   deleteFile(const char* filename);
-    bool   getFileSize(const char* filename, uint32_t& size);
-    size_t readFile(const char* filename, uint8_t* buffer, size_t size);
-    size_t readFilePartial(const char* filename, uint8_t* buffer, size_t size, uint32_t offset);
-    bool   writeFile(const char* filename, const uint8_t* buffer, size_t size);
 
 
     /******************************************************************************

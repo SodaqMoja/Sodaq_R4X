@@ -25,8 +25,9 @@
 
 #define CURRENT_APN      "data.mono"
 #define CURRENT_URAT     "7"
-#define MQTT_SERVER_NAME "test.mosquitto.org"
-#define MQTT_SERVER_PORT 1883
+#define HTTP_HOST        "time.sodaq.net"
+#define HTTP_PORT        80
+#define HTTP_QUERY       "/"
 
 static Sodaq_R4X r4x;
 static Sodaq_SARA_R4XX_OnOff saraR4xxOnOff;
@@ -44,21 +45,11 @@ void setup()
     isReady = r4x.connect(CURRENT_APN, CURRENT_URAT);
     CONSOLE_STREAM.println(isReady ? "Network connected" : "Network connection failed");
 
-    if (isReady) {
-        isReady = r4x.mqttSetServer(MQTT_SERVER_NAME, MQTT_SERVER_PORT) && r4x.mqttLogin();
-        CONSOLE_STREAM.println(isReady ? "MQTT connected" : "MQTT failed");
-    }
-
-    if (isReady) {
-        uint8_t buf0[] = {'t', 'e', 's', 't', '0'};
-        uint8_t buf1[] = {'t', 'e', 's', 't', '1'};
-
-        r4x.mqttPublish("/home/test/test0", buf0, sizeof(buf0));
-        r4x.mqttPublish("/home/test/test1", buf1, sizeof(buf1), 0, 0, 1);
-        r4x.mqttSubscribe("/home/test/#");
-    }
-
     CONSOLE_STREAM.println("Setup done");
+
+    if (isReady) {
+        downloadFile();
+    }
 }
 
 void loop()
@@ -69,20 +60,22 @@ void loop()
         MODEM_STREAM.write(i);
     }
 
-    // if (MODEM_STREAM.available()) {
-    //     CONSOLE_STREAM.write(MODEM_STREAM.read());
-    // }
+    if (MODEM_STREAM.available()) {
+        CONSOLE_STREAM.write(MODEM_STREAM.read());
+    }
+}
 
-    if (isReady) {
-        r4x.mqttLoop();
+void downloadFile()
+{
+    char buffer[2048];
 
-        if (r4x.mqttGetPendingMessages() > 0) {
-            char buffer[2048];
-            uint16_t i = r4x.mqttReadMessages(buffer, sizeof(buffer));
+    uint32_t i = r4x.httpGet(HTTP_HOST, HTTP_PORT, HTTP_QUERY, buffer, sizeof(buffer));
 
-            CONSOLE_STREAM.print("Read messages:");
-            CONSOLE_STREAM.println(i);
-            CONSOLE_STREAM.println(buffer);
-        }
+    CONSOLE_STREAM.print("Read bytes: ");
+    CONSOLE_STREAM.println(i);
+
+    if (i > 0) {
+        CONSOLE_STREAM.println("Buffer:");
+        CONSOLE_STREAM.println(buffer);
     }
 }
