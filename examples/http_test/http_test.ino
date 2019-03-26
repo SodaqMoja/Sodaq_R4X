@@ -75,6 +75,7 @@ void downloadFile()
     CONSOLE_STREAM.println(i);
 
     if (i > 0) {
+        buffer[i] = 0;
         CONSOLE_STREAM.println("Buffer:");
         CONSOLE_STREAM.println(buffer);
     }
