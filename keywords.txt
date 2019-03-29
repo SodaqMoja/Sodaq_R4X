@@ -1,0 +1,128 @@
+#######################################
+# Syntax Coloring Map For Sodaq_R4X
+#######################################
+
+#######################################
+# Datatypes (KEYWORD1)
+#######################################
+
+Sodaq_R4X	KEYWORD1
+
+#######################################
+# Methods and Functions (KEYWORD2)
+#######################################
+
+on	KEYWORD2
+off	KEYWORD2
+isOn	KEYWORD2
+init	KEYWORD2
+connect	KEYWORD2
+disconnect	KEYWORD2
+getDefaultBaudrate	KEYWORD2
+setDiag	KEYWORD2
+setInputBufferSize	KEYWORD2
+attachGprs	KEYWORD2
+getCCID	KEYWORD2
+getEpoch	KEYWORD2
+getFirmwareVersion	KEYWORD2
+getIMEI	KEYWORD2
+getSimStatus	KEYWORD2
+execCommand	KEYWORD2
+isAlive	KEYWORD2
+isAttached	KEYWORD2
+isConnected	KEYWORD2
+isDefinedIP4	KEYWORD2
+purgeAllResponsesRead	KEYWORD2
+setApn	KEYWORD2
+setIndicationsActive	KEYWORD2
+setPin	KEYWORD2
+setRadioActive	KEYWORD2
+setVerboseErrors	KEYWORD2
+convertCSQ2RSSI	KEYWORD2
+convertRSSI2CSQ	KEYWORD2
+getCSQtime	KEYWORD2
+getLastRSSI	KEYWORD2
+getMinRSSI	KEYWORD2
+getRSSIAndBER	KEYWORD2
+setMinCSQ	KEYWORD2
+setMinRSSI	KEYWORD2
+socketCreate	KEYWORD2
+socketSetR4KeepAlive	KEYWORD2
+socketSetR4Option	KEYWORD2
+socketConnect	KEYWORD2
+socketWrite	KEYWORD2
+socketWaitForRead	KEYWORD2
+socketRead	KEYWORD2
+socketSend	KEYWORD2
+socketWaitForReceive	KEYWORD2
+socketReceive	KEYWORD2
+socketClose	KEYWORD2
+socketIsClosed	KEYWORD2
+socketWaitForClose	KEYWORD2
+socketGetPendingBytes	KEYWORD2
+socketHasPendingBytes	KEYWORD2
+mqttGetLoginResult	KEYWORD2
+mqttGetPendingMessages	KEYWORD2
+mqttLogin	KEYWORD2
+mqttLogout	KEYWORD2
+mqttLoop	KEYWORD2
+mqttPing	KEYWORD2
+mqttPublish	KEYWORD2
+mqttReadMessages	KEYWORD2
+mqttSetAuth	KEYWORD2
+mqttSetCleanSettion	KEYWORD2
+mqttSetClientId	KEYWORD2
+mqttSetInactivityTimeout	KEYWORD2
+mqttSetLocalPort	KEYWORD2
+mqttSetSecureOption	KEYWORD2
+mqttSetServer	KEYWORD2
+mqttSetServerIP	KEYWORD2
+mqttSubscribe	KEYWORD2
+mqttUnsubscribe	KEYWORD2
+httpGet	KEYWORD2
+httpGetHeaderSize	KEYWORD2
+httpGetPartial	KEYWORD2
+httpPost	KEYWORD2
+httpPostFromFile	KEYWORD2
+httpRequest	KEYWORD2
+httpRequestFromFile	KEYWORD2
+httpSetCustomHeader	KEYWORD2
+httpClearCustomHeader	KEYWORD2
+deleteFile	KEYWORD2
+getFileSize	KEYWORD2
+readFile	KEYWORD2
+readFilePartial	KEYWORD2
+writeFile	KEYWORD2
+
+#######################################
+# Instances (KEYWORD3)
+#######################################
+
+#######################################
+# Constants (LITERAL1)
+#######################################
+
+DEFAULT_READ_MS	LITERAL1
+SODAQ_MAX_SEND_MESSAGE_SIZE	LITERAL1
+SODAQ_R4X_DEFAULT_CID	LITERAL1
+SODAQ_R4X_DEFAULT_READ_TIMOUT	LITERAL1
+SODAQ_R4X_MAX_SOCKET_BUFFER	LITERAL1
+GSMResponseNotFound	LITERAL1
+GSMResponseOK	LITERAL1
+GSMResponseError	LITERAL1
+GSMResponsePrompt	LITERAL1
+GSMResponseTimeout	LITERAL1
+GSMResponseEmpty	LITERAL1
+POST	LITERAL1
+GET	LITERAL1
+HEAD	LITERAL1
+DELETE	LITERAL1
+PUT	LITERAL1
+HttpRequestTypesMAX	LITERAL1
+TCP	LITERAL1
+UDP	LITERAL1
+SimStatusUnknown	LITERAL1
+SimMissing	LITERAL1
+SimNeedsPin	LITERAL1
+SimReady	LITERAL1
+SOCKET_COUNT	LITERAL1
