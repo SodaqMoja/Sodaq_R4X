@@ -171,6 +171,10 @@ bool Sodaq_R4X::on()
 // Turns the modem off and returns true if successful.
 bool Sodaq_R4X::off()
 {
+	// Safety command to shutdown, response is ignored
+	println("AT+CPWROFF");
+    readResponse();
+	
     // No matter if it is on or off, turn it off.
     if (_onoff) {
         _onoff->off();
