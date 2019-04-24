@@ -144,7 +144,7 @@ public:
 
     bool attachGprs(uint32_t timeout = 10L * 60L * 1000);
     bool getCCID(char* buffer, size_t size);
-	bool getOperatorInfo(uint16_t* mcc, uint16_t* mnc);
+	bool getOperatorInfo(char* buffer, size_t size);
     bool getCellId(uint16_t* tac, uint32_t* cid);
     bool getEpoch(uint32_t* epoch);
     bool getFirmwareVersion(char* buffer, size_t size);
