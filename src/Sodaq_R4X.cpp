@@ -283,7 +283,24 @@ bool Sodaq_R4X::getCCID(char* buffer, size_t size)
     return (readResponse(buffer, size, "+CCID: ") == GSMResponseOK) && (strlen(buffer) > 0);
 }
 
-bool Sodaq_R4X::getOperatorInfo(char* buffer, size_t size)
+bool Sodaq_R4X::getOperatorInfo(uint16_t* mcc, uint16_t* mnc)
+{
+    println("AT+COPS?");
+
+	char responseBuffer[64];
+    memset(responseBuffer, 0, sizeof(responseBuffer));
+
+    if ((readResponse(responseBuffer, sizeof(responseBuffer), "+COPS: ") == GSMResponseOK) && (strlen(responseBuffer) > 0)) {
+		
+		if (sscanf(responseBuffer, "%*d,%*d,\"%hu %hu", mcc, mnc) == 2) {
+            return true;
+		}
+    }
+
+    return false;
+}
+
+bool Sodaq_R4X::getOperatorInfoString(char* buffer, size_t size)
 {
 	if (size < 32 + 1) {
          return false;
