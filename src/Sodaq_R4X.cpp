@@ -1932,7 +1932,7 @@ bool Sodaq_R4X::checkCOPS()
         return false;
     }
 
-    return ((strcmp(buffer, "0") == 0) || execCommand("AT+COPS=0", COPS_TIMEOUT));
+    return ((strncmp(buffer, "0", 1) == 0) || execCommand("AT+COPS=0,2", COPS_TIMEOUT));
 }
 
 bool Sodaq_R4X::checkUrat(const char* requiredURAT)
