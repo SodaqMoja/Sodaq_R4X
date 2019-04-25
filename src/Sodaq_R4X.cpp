@@ -289,14 +289,27 @@ bool Sodaq_R4X::getCCID(char* buffer, size_t size)
 
 bool Sodaq_R4X::getOperatorInfo(uint16_t* mcc, uint16_t* mnc)
 {
+	println("AT+COPS=3,2");
+	
+	if (readResponse() != GSMResponseOK) {
+		return false;
+	}
+	
     println("AT+COPS?");
 
 	char responseBuffer[64];
     memset(responseBuffer, 0, sizeof(responseBuffer));
+	
+	uint32_t operatorCode = 0;
 
     if ((readResponse(responseBuffer, sizeof(responseBuffer), "+COPS: ") == GSMResponseOK) && (strlen(responseBuffer) > 0)) {
 		
-		if (sscanf(responseBuffer, "%*d,%*d,\"%hu %hu", mcc, mnc) == 2) {
+		if (sscanf(responseBuffer, "%*d,%*d,\"%u\"", &operatorCode) == 1) {
+			uint16_t divider = (operatorCode > 100000) ? 1000 : 100;
+			
+			*mcc = operatorCode / divider;
+			*mnc = operatorCode % divider;
+			
             return true;
 		}
     }
