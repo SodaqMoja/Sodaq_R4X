@@ -383,10 +383,6 @@ private:
     // The buffer used when reading from the modem. The space is allocated during init() via initBuffer().
     char* _inputBuffer;
 
-    char* _apn;
-    char* _apnUser;
-    char* _apnPass;
-
     // This flag keeps track if the next write is the continuation of the current command
     // A Carriage Return will reset this flag.
     bool _appendCommand;
