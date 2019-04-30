@@ -120,7 +120,7 @@ public:
     bool off();
 
     // Turns on and initializes the modem, then connects to the network and activates the data connection.
-    bool connect(const char* apn, const char* urat = 0, const char* bandMask = 0);
+    bool connect(const char* apn, const char* urat = 0, const char* forceOperator = 0, const char* bandMask = 0);
 
     // Disconnects the modem from the network.
     bool disconnect();
@@ -338,7 +338,7 @@ private:
     int8_t checkApn(const char* requiredAPN); // -1: error, 0: ip not valid => need attach, 1: valid ip
     bool   checkBandMask(const char* requiredURAT, const char* requiredBankMask);
     bool   checkCFUN();
-    bool   checkCOPS();
+    bool   checkCOPS(const char* requiredOperator);
     bool   checkUrat(const char* requiredURAT);
     bool   checkURC(char* buffer);
     bool   doSIMcheck();

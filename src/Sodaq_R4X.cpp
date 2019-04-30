@@ -52,6 +52,7 @@ POSSIBILITY OF SUCH DAMAGE.
 #define SODAQ_GSM_MODEM_DEFAULT_INPUT_BUFFER_SIZE 1024
 #define SODAQ_GSM_TERMINATOR_LEN (sizeof(SODAQ_GSM_TERMINATOR) - 1)
 
+#define AUTOMATIC_OPERATOR         "0"
 #define DEFAULT_BANDMASK           "524288"
 #define DEFAULT_URAT               "8"
 
@@ -184,7 +185,7 @@ bool Sodaq_R4X::off()
 }
 
 // Turns on and initializes the modem, then connects to the network and activates the data connection.
-bool Sodaq_R4X::connect(const char* apn, const char* urat, const char* bandMask)
+bool Sodaq_R4X::connect(const char* apn, const char* urat, const char* forceOperator, const char* bandMask)
 {
     if (!on()) {
         return false;
@@ -204,7 +205,7 @@ bool Sodaq_R4X::connect(const char* apn, const char* urat, const char* bandMask)
         return false;
     }
 
-    if (!checkCOPS()) {
+	if (!checkCOPS(forceOperator != 0 ? forceOperator : AUTOMATIC_OPERATOR)) {
         return false;
     }
 
@@ -1941,8 +1942,14 @@ bool Sodaq_R4X::checkCFUN()
     return ((strcmp(buffer, "1") == 0) || setRadioActive(true));
 }
 
-bool Sodaq_R4X::checkCOPS()
+bool Sodaq_R4X::checkCOPS(const char* requiredOperator)
 {
+	println("AT+COPS=3,2");
+	
+	if (readResponse() != GSMResponseOK) {
+		return false;
+	}
+	
     println("AT+COPS?");
 
     char buffer[64];
@@ -1951,7 +1958,19 @@ bool Sodaq_R4X::checkCOPS()
         return false;
     }
 
-    return ((strncmp(buffer, "0", 1) == 0) || execCommand("AT+COPS=0,2", COPS_TIMEOUT));
+	if (strcmp(requiredOperator, AUTOMATIC_OPERATOR) == 0) {
+		return ((strncmp(buffer, "0", 1) == 0) || execCommand("AT+COPS=0,2", COPS_TIMEOUT));
+	}
+	else if (strncmp(&buffer[5], requiredOperator, strlen(requiredOperator)) == 0) {
+		return true;
+	}
+	else {			
+		print("AT+COPS=1,2,\"");
+		print(requiredOperator);
+		println('"');
+
+		return (readResponse(NULL, 0, NULL, COPS_TIMEOUT) == GSMResponseOK);
+	}
 }
 
 bool Sodaq_R4X::checkUrat(const char* requiredURAT)
