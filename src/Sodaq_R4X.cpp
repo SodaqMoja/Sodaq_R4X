@@ -1961,7 +1961,7 @@ bool Sodaq_R4X::checkCOPS(const char* requiredOperator)
 	if (strcmp(requiredOperator, AUTOMATIC_OPERATOR) == 0) {
 		return ((strncmp(buffer, "0", 1) == 0) || execCommand("AT+COPS=0,2", COPS_TIMEOUT));
 	}
-	else if (strncmp(&buffer[5], requiredOperator, strlen(requiredOperator)) == 0) {
+	else if ((strncmp(buffer, "1", 1) == 0) && (strncmp(buffer + 5, requiredOperator, strlen(requiredOperator)) == 0)) {
 		return true;
 	}
 	else {			
