@@ -324,6 +324,12 @@ bool Sodaq_R4X::getOperatorInfoString(char* buffer, size_t size)
     }
 	
 	buffer[0] = 0;
+	
+	println("AT+COPS=3,0");
+	
+	if (readResponse() != GSMResponseOK) {
+		return false;
+	}
     
 	println("AT+COPS?");
 
