@@ -205,15 +205,15 @@ bool Sodaq_R4X::connect(const char* apn, const char* urat, const char* forceOper
         return false;
     }
 
-	if (!checkCOPS(forceOperator != 0 ? forceOperator : AUTOMATIC_OPERATOR)) {
-        return false;
-    }
-
     if (!checkUrat(urat != 0 ? urat : DEFAULT_URAT)) {
         return false;
     }
 
     if (!checkBandMask(urat, bandMask != 0 ? bandMask : DEFAULT_BANDMASK)) {
+        return false;
+    }
+
+    if (!checkCOPS(forceOperator != 0 ? forceOperator : AUTOMATIC_OPERATOR)) {
         return false;
     }
 
