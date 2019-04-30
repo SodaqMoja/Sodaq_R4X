@@ -172,10 +172,10 @@ bool Sodaq_R4X::on()
 // Turns the modem off and returns true if successful.
 bool Sodaq_R4X::off()
 {
-	// Safety command to shutdown, response is ignored
-	println("AT+CPWROFF");
+    // Safety command to shutdown, response is ignored
+    println("AT+CPWROFF");
     readResponse();
-	
+
     // No matter if it is on or off, turn it off.
     if (_onoff) {
         _onoff->off();
@@ -290,29 +290,29 @@ bool Sodaq_R4X::getCCID(char* buffer, size_t size)
 
 bool Sodaq_R4X::getOperatorInfo(uint16_t* mcc, uint16_t* mnc)
 {
-	println("AT+COPS=3,2");
-	
-	if (readResponse() != GSMResponseOK) {
-		return false;
-	}
-	
+    println("AT+COPS=3,2");
+
+    if (readResponse() != GSMResponseOK) {
+        return false;
+    }
+
     println("AT+COPS?");
 
-	char responseBuffer[64];
+    char responseBuffer[64];
     memset(responseBuffer, 0, sizeof(responseBuffer));
-	
-	uint32_t operatorCode = 0;
+
+    uint32_t operatorCode = 0;
 
     if ((readResponse(responseBuffer, sizeof(responseBuffer), "+COPS: ") == GSMResponseOK) && (strlen(responseBuffer) > 0)) {
-		
-		if (sscanf(responseBuffer, "%*d,%*d,\"%u\"", &operatorCode) == 1) {
-			uint16_t divider = (operatorCode > 100000) ? 1000 : 100;
-			
-			*mcc = operatorCode / divider;
-			*mnc = operatorCode % divider;
-			
+
+        if (sscanf(responseBuffer, "%*d,%*d,\"%u\"", &operatorCode) == 1) {
+            uint16_t divider = (operatorCode > 100000) ? 1000 : 100;
+
+            *mcc = operatorCode / divider;
+            *mnc = operatorCode % divider;
+
             return true;
-		}
+        }
     }
 
     return false;
@@ -320,26 +320,26 @@ bool Sodaq_R4X::getOperatorInfo(uint16_t* mcc, uint16_t* mnc)
 
 bool Sodaq_R4X::getOperatorInfoString(char* buffer, size_t size)
 {
-	if (size < 32 + 1) {
+    if (size < 32 + 1) {
          return false;
     }
-	
-	buffer[0] = 0;
-	
-	println("AT+COPS=3,0");
-	
-	if (readResponse() != GSMResponseOK) {
-		return false;
-	}
-    
-	println("AT+COPS?");
 
-	char responseBuffer[64];
+    buffer[0] = 0;
+
+    println("AT+COPS=3,0");
+
+    if (readResponse() != GSMResponseOK) {
+        return false;
+    }
+
+    println("AT+COPS?");
+
+    char responseBuffer[64];
     memset(responseBuffer, 0, sizeof(responseBuffer));
 
     if ((readResponse(responseBuffer, sizeof(responseBuffer), "+COPS: ") == GSMResponseOK) && (strlen(responseBuffer) > 0)) {
-		
-		if (sscanf(responseBuffer, "%*d,%*d,\"%[^\"]\"", buffer) == 1) {
+
+        if (sscanf(responseBuffer, "%*d,%*d,\"%[^\"]\"", buffer) == 1) {
             return true;
         }
     }
@@ -361,10 +361,10 @@ bool Sodaq_R4X::getCellId(uint16_t* tac, uint32_t* cid)
     memset(responseBuffer, 0, sizeof(responseBuffer));
 
     if ((readResponse(responseBuffer, sizeof(responseBuffer), "+CEREG: ") == GSMResponseOK) && (strlen(responseBuffer) > 0)) {
-		
-		if (sscanf(responseBuffer, "2,%*d,\"%hx\",\"%x\",", tac, cid) == 2) {
+
+        if (sscanf(responseBuffer, "2,%*d,\"%hx\",\"%x\",", tac, cid) == 2) {
             return true;
-		}
+        }
     }
 
     return false;
@@ -1944,12 +1944,12 @@ bool Sodaq_R4X::checkCFUN()
 
 bool Sodaq_R4X::checkCOPS(const char* requiredOperator)
 {
-	println("AT+COPS=3,2");
-	
-	if (readResponse() != GSMResponseOK) {
-		return false;
-	}
-	
+    println("AT+COPS=3,2");
+
+    if (readResponse() != GSMResponseOK) {
+        return false;
+    }
+
     println("AT+COPS?");
 
     char buffer[64];
@@ -1958,19 +1958,19 @@ bool Sodaq_R4X::checkCOPS(const char* requiredOperator)
         return false;
     }
 
-	if (strcmp(requiredOperator, AUTOMATIC_OPERATOR) == 0) {
-		return ((strncmp(buffer, "0", 1) == 0) || execCommand("AT+COPS=0,2", COPS_TIMEOUT));
-	}
-	else if ((strncmp(buffer, "1", 1) == 0) && (strncmp(buffer + 5, requiredOperator, strlen(requiredOperator)) == 0)) {
-		return true;
-	}
-	else {			
-		print("AT+COPS=1,2,\"");
-		print(requiredOperator);
-		println('"');
+    if (strcmp(requiredOperator, AUTOMATIC_OPERATOR) == 0) {
+        return ((strncmp(buffer, "0", 1) == 0) || execCommand("AT+COPS=0,2", COPS_TIMEOUT));
+    }
+    else if ((strncmp(buffer, "1", 1) == 0) && (strncmp(buffer + 5, requiredOperator, strlen(requiredOperator)) == 0)) {
+        return true;
+    }
+    else {
+        print("AT+COPS=1,2,\"");
+        print(requiredOperator);
+        println('"');
 
-		return (readResponse(NULL, 0, NULL, COPS_TIMEOUT) == GSMResponseOK);
-	}
+        return (readResponse(NULL, 0, NULL, COPS_TIMEOUT) == GSMResponseOK);
+    }
 }
 
 bool Sodaq_R4X::checkUrat(const char* requiredURAT)
