@@ -38,6 +38,10 @@ POSSIBILITY OF SUCH DAMAGE.
 #define SODAQ_R4X_DEFAULT_READ_TIMOUT   15000
 #define SODAQ_R4X_MAX_SOCKET_BUFFER     1024
 
+#define SODAQ_R4X_LTEM_URAT             "7"
+#define SODAQ_R4X_NBIOT_URAT            "8"
+#define SODAQ_R4X_2G_URAT               "9"
+
 #include "Arduino.h"
 
 enum GSMResponseTypes {

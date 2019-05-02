@@ -54,7 +54,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 #define AUTOMATIC_OPERATOR         "0"
 #define DEFAULT_BANDMASK           "524288"
-#define DEFAULT_URAT               "8"
+#define DEFAULT_URAT               SODAQ_R4X_LTEM_URAT
 
 #define DEBUG_STR_ERROR            "[ERROR]: "
 #define STR_AT                     "AT"
