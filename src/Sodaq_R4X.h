@@ -173,6 +173,7 @@ public:
     void purgeAllResponsesRead();
     bool setApn(const char* apn);
     bool setIndicationsActive(bool on);
+    void setNetworkStatusLED(bool on) { _networkStatusLED = on; };
     void setPin(const char* pin);
     bool setRadioActive(bool on);
     bool setVerboseErrors(bool on);
@@ -335,6 +336,7 @@ private:
     int8_t    _mqttLoginResult;
     int16_t   _mqttPendingMessages;
     int8_t    _mqttSubscribeReason;
+    bool      _networkStatusLED;
     char*     _pin;
     bool      _socketClosedBit[SOCKET_COUNT];
     size_t    _socketPendingBytes[SOCKET_COUNT];
@@ -346,6 +348,7 @@ private:
     bool   checkUrat(const char* requiredURAT);
     bool   checkURC(char* buffer);
     bool   doSIMcheck();
+    bool   setNetworkLEDState();
     bool   isValidIPv4(const char* str);
 
     GSMResponseTypes readResponse(char* outBuffer = NULL, size_t outMaxSize = 0, const char* prefix = NULL,

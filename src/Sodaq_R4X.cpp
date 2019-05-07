@@ -56,6 +56,8 @@ POSSIBILITY OF SUCH DAMAGE.
 #define DEFAULT_BANDMASK           "524288"
 #define DEFAULT_URAT               SODAQ_R4X_LTEM_URAT
 
+#define NETWORK_STATUS_GPIO_ID     16
+
 #define DEBUG_STR_ERROR            "[ERROR]: "
 #define STR_AT                     "AT"
 #define STR_RESPONSE_OK            "OK"
@@ -2151,7 +2153,9 @@ bool Sodaq_R4X::doSIMcheck()
 
 bool Sodaq_R4X::setNetworkLEDState()
 {
-    print("AT+UGPIOC=16,");
+    print("AT+UGPIOC=");
+    print(NETWORK_STATUS_GPIO_ID);
+    print(',');
     (_networkStatusLED) ? println("2") : println("255");
 
     return (readResponse() == GSMResponseOK);
