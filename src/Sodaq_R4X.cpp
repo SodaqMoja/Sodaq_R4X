@@ -124,6 +124,7 @@ Sodaq_R4X::Sodaq_R4X() :
     _mqttLoginResult     = -1;
     _mqttPendingMessages = -1;
     _mqttSubscribeReason = -1;
+    _networkStatusLED = 0;
     _pin                 = 0;
 
     memset(_socketClosedBit,    1, sizeof(_socketClosedBit));
@@ -194,6 +195,10 @@ bool Sodaq_R4X::connect(const char* apn, const char* urat, const char* forceOper
     purgeAllResponsesRead();
 
     if (!setVerboseErrors(true)) {
+        return false;
+    }
+
+    if (!setNetworkLEDState()) {
         return false;
     }
 
@@ -2142,6 +2147,14 @@ bool Sodaq_R4X::doSIMcheck()
     }
 
     return false;
+}
+
+bool Sodaq_R4X::setNetworkLEDState()
+{
+    print("AT+UGPIOC=16,");
+    (_networkStatusLED) ? println("2") : println("255");
+
+    return (readResponse() == GSMResponseOK);
 }
 
 bool Sodaq_R4X::isValidIPv4(const char* str)
