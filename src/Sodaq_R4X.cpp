@@ -2000,10 +2000,19 @@ bool Sodaq_R4X::checkUrat(const char* requiredURAT)
         return true;
     }
 
+    println("AT+COPS=2");
+    if (readResponse() != GSMResponseOK) {
+        return false;
+    }
+
     print("AT+URAT=");
     println(requiredURAT);
+    if (readResponse() != GSMResponseOK) {
+        return false;
+    }
 
-    return (readResponse() == GSMResponseOK);
+    reboot();
+    return true;
 }
 
 bool Sodaq_R4X::checkURC(char* buffer)
