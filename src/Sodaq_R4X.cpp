@@ -1934,8 +1934,12 @@ bool Sodaq_R4X::checkBandMask(const char* requiredURAT, const char* requiredBank
 
     print("AT+UBANDMASK=1,");
     println(requiredBankMask);
+    if (readResponse() != GSMResponseOK) {
+        return false;
+    }
 
-    return (readResponse() == GSMResponseOK);
+    reboot();
+    return true;
 }
 
 bool Sodaq_R4X::checkCFUN()
