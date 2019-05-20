@@ -176,8 +176,10 @@ bool Sodaq_R4X::on()
 bool Sodaq_R4X::off()
 {
     // Safety command to shutdown, response is ignored
-    println("AT+CPWROFF");
-    readResponse();
+    if (isOn()) {
+        println("AT+CPWROFF");
+        readResponse(NULL, 0, NULL, 1000);
+    }
 
     // No matter if it is on or off, turn it off.
     if (_onoff) {
