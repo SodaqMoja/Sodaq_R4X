@@ -169,6 +169,9 @@ bool Sodaq_R4X::on()
         return false;
     }
 
+    // Extra read just to clear the input stream
+    readResponse(NULL, 0, NULL, 250);
+
     return isOn(); // this essentially means isOn() && isAlive()
 }
 
