@@ -1340,6 +1340,10 @@ uint32_t Sodaq_R4X::httpGetHeaderSize(const char* filename)
         size_t size;
         size = readFilePartial(filename, buffer, sizeof(buffer), offset);
 
+        if (size == 0) {
+            return 0;
+        }
+
         size_t ix;
         for (ix = 0; state != 4 && ix < sizeof(buffer); ix++) {
             if ((state == 0 || state == 2) && buffer[ix] == '\r') {
