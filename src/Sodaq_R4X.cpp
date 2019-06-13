@@ -431,7 +431,7 @@ bool Sodaq_R4X::getIMEI(char* buffer, size_t size)
         return false;
     }
 
-    return (execCommand("AT+CGSN", DEFAULT_READ_MS, buffer, size) == GSMResponseOK) && (strlen(buffer) > 0);
+    return (execCommand("AT+CGSN", DEFAULT_READ_MS, buffer, size) == GSMResponseOK) && (strlen(buffer) > 0) && (atoll(buffer) > 0);
 }
 
 SimStatuses Sodaq_R4X::getSimStatus()
