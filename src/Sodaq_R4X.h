@@ -66,6 +66,18 @@ enum HttpRequestTypes {
     HttpRequestTypesMAX
 };
 
+enum MNOProfiles {
+    SWD_DEFAULT     = 0,
+    SIM_ICCID       = 1,
+    ATT             = 2,
+    VERIZON         = 3,
+    TELSTRA         = 4,
+    T_MOBILE_US     = 5,
+    CHINA_TELECOM   = 6,
+    VODAFONE        = 19,
+    STANDARD_EUROPE = 100
+};
+
 enum Protocols {
     TCP = 0,
     UDP
