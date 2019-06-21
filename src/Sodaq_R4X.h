@@ -144,7 +144,12 @@ public:
     bool off();
 
     // Turns on and initializes the modem, then connects to the network and activates the data connection.
-    bool connect(const char* apn, const char* urat = 0, const char* forceOperator = 0, const char* bandMask = 0);
+    bool connect(const char* apn, const char* urat = DEFAULT_URAT, 
+        const char* bandMask = BAND_MASK_UNCHANGED);
+
+    bool connect(const char* apn, const char* uratSelect, uint8_t mnoProfile, 
+        const char* operatorSelect = AUTOMATIC_OPERATOR, const char* bandMaskLTE = BAND_MASK_UNCHANGED, 
+        const char* bandMaskNB = BAND_MASK_UNCHANGED);
 
     // Disconnects the modem from the network.
     bool disconnect();

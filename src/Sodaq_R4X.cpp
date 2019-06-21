@@ -53,7 +53,6 @@ POSSIBILITY OF SUCH DAMAGE.
 #define SODAQ_GSM_MODEM_DEFAULT_INPUT_BUFFER_SIZE 1024
 #define SODAQ_GSM_TERMINATOR_LEN (sizeof(SODAQ_GSM_TERMINATOR) - 1)
 
-#define DEFAULT_BANDMASK           "524288"
 #define NETWORK_STATUS_GPIO_ID     16
 
 #define DEBUG_STR_ERROR            "[ERROR]: "
@@ -190,8 +189,8 @@ bool Sodaq_R4X::off()
     return !isOn();
 }
 
-// Turns on and initializes the modem, then connects to the network and activates the data connection.
-bool Sodaq_R4X::connect(const char* apn, const char* urat, const char* forceOperator, const char* bandMask)
+bool Sodaq_R4X::connect(const char* apn, const char* uratSelect, uint8_t mnoProfile,
+    const char* operatorSelect, const char* bandMaskLTE, const char* bandMaskNB)
 {
     if (!on()) {
         return false;
@@ -215,15 +214,19 @@ bool Sodaq_R4X::connect(const char* apn, const char* urat, const char* forceOper
         return false;
     }
 
-    if (!checkUrat(urat != 0 ? urat : DEFAULT_URAT)) {
+    if (!checkProfile(mnoProfile)) {
         return false;
     }
 
-    if (!checkBandMask(urat, bandMask != 0 ? bandMask : DEFAULT_BANDMASK)) {
+    if (!checkUrat(uratSelect != 0 ? uratSelect : DEFAULT_URAT)) {
         return false;
     }
 
-    if (!checkCOPS(forceOperator != 0 ? forceOperator : AUTOMATIC_OPERATOR)) {
+    //if (!checkBandMask(uratSelect, bandMask != 0 ? bandMask : BAND_MASK_UNCHANGED)) {
+    //    return false;
+    //}
+
+    if (!checkCOPS(operatorSelect != 0 ? operatorSelect : AUTOMATIC_OPERATOR)) {
         return false;
     }
 
@@ -247,6 +250,11 @@ bool Sodaq_R4X::connect(const char* apn, const char* urat, const char* forceOper
     }
 
     return execCommand("AT+UDCONF=1,1") && doSIMcheck();
+}
+
+bool Sodaq_R4X::connect(const char* apn, const char* urat, const char* bandMask)
+{
+    connect(apn, urat, SIM_ICCID, AUTOMATIC_OPERATOR, BAND_MASK_UNCHANGED, bandMask);
 }
 
 // Disconnects the modem from the network.
