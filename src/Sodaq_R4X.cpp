@@ -42,7 +42,8 @@ POSSIBILITY OF SUCH DAMAGE.
 #define CGACT_TIMEOUT              150000
 #define COPS_TIMEOUT               180000
 #define ISCONNECTED_CSQ_TIMEOUT    10000
-#define REBOOT_DELAY               15000
+#define REBOOT_DELAY               5000
+#define REBOOT_TIMEOUT             5000
 #define SOCKET_CLOSE_TIMEOUT       120000
 #define SOCKET_CONNECT_TIMEOUT     120000
 #define SOCKET_WRITE_TIMEOUT       120000
@@ -246,7 +247,6 @@ bool Sodaq_R4X::connect(const char* apn, const char* urat, const char* forceOper
 
     if (millis() - tm > ATTACH_NEED_REBOOT) {
         reboot();
-        sodaq_wdt_safe_delay(REBOOT_DELAY);
     }
 
     return execCommand("AT+UDCONF=1,1") && doSIMcheck();
@@ -1946,6 +1946,7 @@ bool Sodaq_R4X::checkBandMask(const char* requiredURAT, const char* requiredBank
     }
 
     reboot();
+
     return true;
 }
 
@@ -2019,6 +2020,7 @@ bool Sodaq_R4X::checkUrat(const char* requiredURAT)
     }
 
     reboot();
+
     return true;
 }
 
@@ -2332,6 +2334,21 @@ void Sodaq_R4X::reboot()
     uint32_t start = millis();
 
     while ((readResponse() != GSMResponseOK) && !is_timedout(start, 2000)) {}
+
+    // wait for the reboot to start
+    sodaq_wdt_safe_delay(REBOOT_DELAY);
+
+    start = millis();
+    while (!is_timedout(start, REBOOT_TIMEOUT)) {
+        if (isAlive()) {
+            // echo off again after reboot
+            execCommand("ATE0");
+            break;
+        }
+    }
+
+    // extra read just to clear the input stream
+    readResponse(NULL, 0, NULL, 250);
 }
 
 bool Sodaq_R4X::setSimPin(const char* simPin)
