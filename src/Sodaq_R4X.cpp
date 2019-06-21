@@ -42,8 +42,8 @@ POSSIBILITY OF SUCH DAMAGE.
 #define CGACT_TIMEOUT              150000
 #define COPS_TIMEOUT               180000
 #define ISCONNECTED_CSQ_TIMEOUT    10000
-#define REBOOT_DELAY               5000
-#define REBOOT_TIMEOUT             5000
+#define REBOOT_DELAY               1000
+#define REBOOT_TIMEOUT             15000
 #define SOCKET_CLOSE_TIMEOUT       120000
 #define SOCKET_CONNECT_TIMEOUT     120000
 #define SOCKET_WRITE_TIMEOUT       120000
@@ -2338,14 +2338,14 @@ void Sodaq_R4X::reboot()
     // wait for the reboot to start
     sodaq_wdt_safe_delay(REBOOT_DELAY);
 
-    start = millis();
     while (!is_timedout(start, REBOOT_TIMEOUT)) {
-        if (isAlive()) {
-            // echo off again after reboot
-            execCommand("ATE0");
+        if (getSimStatus() == SimReady) {
             break;
         }
     }
+
+    // echo off again after reboot
+    execCommand("ATE0");
 
     // extra read just to clear the input stream
     readResponse(NULL, 0, NULL, 250);
