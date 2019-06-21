@@ -175,7 +175,7 @@ public:
     bool getCCID(char* buffer, size_t size);
     bool getOperatorInfo(uint16_t* mcc, uint16_t* mnc);
     bool getOperatorInfoString(char* buffer, size_t size);
-    bool getCellId(uint16_t* tac, uint32_t* cid);
+    bool getCellInfo(uint16_t* tac, uint32_t* cid, uint16_t* urat);
     bool getEpoch(uint32_t* epoch);
     bool getFirmwareVersion(char* buffer, size_t size);
     bool getFirmwareRevision(char* buffer, size_t size);

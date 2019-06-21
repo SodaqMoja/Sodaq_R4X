@@ -364,7 +364,7 @@ bool Sodaq_R4X::getOperatorInfoString(char* buffer, size_t size)
     return false;
 }
 
-bool Sodaq_R4X::getCellId(uint16_t* tac, uint32_t* cid)
+bool Sodaq_R4X::getCellInfo(uint16_t* tac, uint32_t* cid, uint16_t* urat)
 {
     println("AT+CEREG=2");
 
@@ -379,7 +379,7 @@ bool Sodaq_R4X::getCellId(uint16_t* tac, uint32_t* cid)
 
     if ((readResponse(responseBuffer, sizeof(responseBuffer), "+CEREG: ") == GSMResponseOK) && (strlen(responseBuffer) > 0)) {
 
-        if (sscanf(responseBuffer, "2,%*d,\"%hx\",\"%x\",", tac, cid) == 2) {
+        if (sscanf(responseBuffer, "2,%*d,\"%hx\",\"%x\",%hi", tac, cid, urat) == 3) {
             return true;
         }
     }
