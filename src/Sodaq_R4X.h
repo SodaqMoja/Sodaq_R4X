@@ -41,6 +41,10 @@ POSSIBILITY OF SUCH DAMAGE.
 #define SODAQ_R4X_LTEM_URAT             "7"
 #define SODAQ_R4X_NBIOT_URAT            "8"
 #define SODAQ_R4X_2G_URAT               "9"
+#define SODAQ_R4X_LTEM_NBIOT_URAT       "7,8"
+#define SODAQ_R4X_LTEM_2G_URAT          "7,9"
+#define SODAQ_R4X_NBIOT_2G_URAT         "8,9"
+#define SODAQ_R4X_LTEM_NBIOT_2G_URAT    "7,8,9"
 
 #include "Arduino.h"
 
