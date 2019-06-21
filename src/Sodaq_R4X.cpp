@@ -642,6 +642,20 @@ bool Sodaq_R4X::socketClose(uint8_t socketID, bool async)
     return true;
 }
 
+int Sodaq_R4X::socketCloseAll() {
+
+    int closedCount = 0;
+
+    for (uint8_t i = 0; i < SOCKET_COUNT; i++) {
+        if (socketClose(i, false)) {
+            closedCount++;
+        }
+    }
+
+    // return the number of sockets we closed
+    return closedCount;
+}
+
 bool Sodaq_R4X::socketConnect(uint8_t socketID, const char* remoteHost, const uint16_t remotePort)
 {
     print("AT+USOCO=");

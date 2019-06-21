@@ -246,6 +246,7 @@ public:
     size_t socketReceive(uint8_t socketID, uint8_t* buffer, size_t length);
 
     bool   socketClose(uint8_t socketID, bool async = false);
+    int    socketCloseAll();
     bool   socketIsClosed(uint8_t socketID);
     bool   socketWaitForClose(uint8_t socketID, uint32_t timeout);
 
