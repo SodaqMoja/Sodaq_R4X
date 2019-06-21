@@ -1991,6 +1991,35 @@ bool Sodaq_R4X::checkCOPS(const char* requiredOperator)
     }
 }
 
+bool Sodaq_R4X::checkProfile(const uint8_t requiredProfile)
+{
+    println("AT+UMNOPROF?");
+
+    char buffer[64];
+    if (readResponse(buffer, sizeof(buffer), "+UMNOPROF: ") != GSMResponseOK) {
+        return false;
+    }
+
+    if (atoi(buffer) == requiredProfile) {
+        return true;
+    }
+
+    println("AT+COPS=2");
+    if (readResponse() != GSMResponseOK) {
+        return false;
+    }
+
+    print("AT+UMNOPROF=");
+    println(requiredProfile);
+    if (readResponse() != GSMResponseOK) {
+        return false;
+    }
+
+    reboot();
+
+    return true;
+}
+
 bool Sodaq_R4X::checkUrat(const char* requiredURAT)
 {
     println("AT+URAT?");

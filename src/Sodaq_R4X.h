@@ -365,6 +365,7 @@ private:
     bool   checkBandMask(const char* requiredURAT, const char* requiredBankMask);
     bool   checkCFUN();
     bool   checkCOPS(const char* requiredOperator);
+    bool   checkProfile(const uint8_t requiredProfile);
     bool   checkUrat(const char* requiredURAT);
     bool   checkURC(char* buffer);
     bool   doSIMcheck();
