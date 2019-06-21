@@ -46,6 +46,10 @@ POSSIBILITY OF SUCH DAMAGE.
 #define SODAQ_R4X_NBIOT_2G_URAT         "8,9"
 #define SODAQ_R4X_LTEM_NBIOT_2G_URAT    "7,8,9"
 
+#define DEFAULT_URAT                    SODAQ_R4X_NBIOT_URAT
+#define AUTOMATIC_OPERATOR              "0"
+#define BAND_MASK_UNCHANGED             0
+
 #include "Arduino.h"
 
 enum GSMResponseTypes {
