@@ -291,6 +291,31 @@ bool Sodaq_R4X::attachGprs(uint32_t timeout)
     return false;
 }
 
+bool Sodaq_R4X::bandMasktoStr(const uint64_t bandMask, char* str, size_t size)
+{
+    bool result = false;
+
+    uint8_t i = 0;
+    uint64_t n = bandMask;
+
+    do {
+        i++;
+    } while (n /= 10);
+
+    if (i < size) {
+        str[i] = '\0';
+        n = bandMask;
+
+        do {
+            str[--i] = (n % 10) + '0';
+        } while (n /= 10);
+
+        result = true;
+    }
+
+    return result;
+}
+
 // Gets Integrated Circuit Card ID.
 // Should be provided with a buffer of at least 21 bytes.
 // Returns true if successful.

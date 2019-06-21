@@ -104,6 +104,7 @@ enum TriBoolStates
 typedef TriBoolStates tribool_t;
 
 #define UNUSED(x) (void)(x)
+#define BAND_TO_MASK(x) (1 << (x - 1))
 
 #define SOCKET_COUNT 7
 
@@ -172,6 +173,7 @@ public:
     *****************************************************************************/
 
     bool attachGprs(uint32_t timeout = 10L * 60L * 1000);
+    bool bandMasktoStr(const uint64_t bandMask, char* str, size_t size);
     bool getCCID(char* buffer, size_t size);
     bool getOperatorInfo(uint16_t* mcc, uint16_t* mnc);
     bool getOperatorInfoString(char* buffer, size_t size);
