@@ -222,9 +222,9 @@ bool Sodaq_R4X::connect(const char* apn, const char* uratSelect, uint8_t mnoProf
         return false;
     }
 
-    //if (!checkBandMask(uratSelect, bandMask != 0 ? bandMask : BAND_MASK_UNCHANGED)) {
-    //    return false;
-    //}
+    if (!checkBandMasks(bandMaskLTE, bandMaskNB)) {
+        return false;
+    }
 
     if (!checkCOPS(operatorSelect != 0 ? operatorSelect : AUTOMATIC_OPERATOR)) {
         return false;
@@ -1920,9 +1920,10 @@ int8_t Sodaq_R4X::checkApn(const char* requiredAPN)
     return setApn(requiredAPN) ? 0 : 1;
 }
 
-bool Sodaq_R4X::checkBandMask(const char* requiredURAT, const char* requiredBankMask)
+bool Sodaq_R4X::checkBandMasks(const char* bandMaskLTE, const char* bandMaskNB)
 {
-    if (requiredURAT != NULL && strchr(requiredURAT, '8') == NULL) { // set BANDMASK for NB-Iot (URAT=8) only
+    // if no changes required
+    if ((bandMaskLTE == BAND_MASK_UNCHANGED) && (bandMaskLTE == BAND_MASK_UNCHANGED)) {
         return true;
     }
 
@@ -1940,12 +1941,28 @@ bool Sodaq_R4X::checkBandMask(const char* requiredURAT, const char* requiredBank
         return false;
     }
 
-    if (strcmp(bm1, requiredBankMask) == 0) {
+    bool setLTEMask = (strcmp(bm0, bandMaskLTE) != 0) && (bandMaskLTE != BAND_MASK_UNCHANGED);
+    bool setNBMask = (strcmp(bm1, bandMaskNB) != 0) && (bandMaskNB != BAND_MASK_UNCHANGED);
+
+    // masks are both already match those requested
+    if (!setLTEMask && !setNBMask) {
         return true;
     }
 
-    print("AT+UBANDMASK=1,");
-    println(requiredBankMask);
+    print("AT+UBANDMASK=");
+    if (setLTEMask) {
+        print("0,");
+        print(bandMaskLTE);
+        if (setNBMask) {
+            print(",");
+        }
+    }
+    if (setNBMask) {
+        print("1,");
+        print(bandMaskNB);
+    }
+    println();
+
     if (readResponse() != GSMResponseOK) {
         return false;
     }
