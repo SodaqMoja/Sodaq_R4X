@@ -632,12 +632,12 @@ bool Sodaq_R4X::socketClose(uint8_t socketID, bool async)
         println();
     }
 
+    _socketClosedBit   [socketID] = true;
+    _socketPendingBytes[socketID] = 0;
+
     if (readResponse(NULL, 0, NULL, SOCKET_CLOSE_TIMEOUT) != GSMResponseOK) {
         return false;
     }
-
-    _socketClosedBit   [socketID] = true;
-    _socketPendingBytes[socketID] = 0;
 
     return true;
 }
