@@ -960,7 +960,7 @@ bool Sodaq_R4X::socketWaitForReceive(uint8_t socketID, uint32_t timeout)
             }
         }
 
-        sodaq_wdt_safe_delay(10);
+        sodaq_wdt_safe_delay(250);
     }
 
     return socketHasPendingBytes(socketID);
