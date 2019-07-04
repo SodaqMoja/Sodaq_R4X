@@ -1962,7 +1962,7 @@ int8_t Sodaq_R4X::checkApn(const char* requiredAPN)
 bool Sodaq_R4X::checkBandMasks(const char* bandMaskLTE, const char* bandMaskNB)
 {
     // if no changes required
-    if ((bandMaskLTE == BAND_MASK_UNCHANGED) && (bandMaskLTE == BAND_MASK_UNCHANGED)) {
+    if ((bandMaskLTE == BAND_MASK_UNCHANGED) && (bandMaskNB == BAND_MASK_UNCHANGED)) {
         return true;
     }
 
