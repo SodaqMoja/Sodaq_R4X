@@ -175,6 +175,7 @@ public:
     bool attachGprs(uint32_t timeout = 10L * 60L * 1000);
     bool bandMasktoStr(const uint64_t bandMask, char* str, size_t size);
     bool getCCID(char* buffer, size_t size);
+    bool getIMSI(char* buffer, size_t size);
     bool getOperatorInfo(uint16_t* mcc, uint16_t* mnc);
     bool getOperatorInfoString(char* buffer, size_t size);
     bool getCellInfo(uint16_t* tac, uint32_t* cid, uint16_t* urat);

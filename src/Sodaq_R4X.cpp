@@ -330,6 +330,18 @@ bool Sodaq_R4X::getCCID(char* buffer, size_t size)
     return (readResponse(buffer, size, "+CCID: ") == GSMResponseOK) && (strlen(buffer) > 0);
 }
 
+// Gets the International Mobile Subscriber Identity
+// Should be provided with a buffer of at least 21 bytes.
+// Returns true if successful.
+bool Sodaq_R4X::getIMSI(char* buffer, size_t size)
+{
+    if (buffer == NULL || size < 20 + 1) {
+        return false;
+    }
+
+    return (execCommand("AT+CIMI", DEFAULT_READ_MS, buffer, size) == GSMResponseOK) && (strlen(buffer) > 0) && (atoll(buffer) > 0);
+}
+
 bool Sodaq_R4X::getOperatorInfo(uint16_t* mcc, uint16_t* mnc)
 {
     println("AT+COPS=3,2");
