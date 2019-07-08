@@ -42,7 +42,7 @@ POSSIBILITY OF SUCH DAMAGE.
 #define CGACT_TIMEOUT              150000
 #define COPS_TIMEOUT               180000
 #define ISCONNECTED_CSQ_TIMEOUT    10000
-#define REBOOT_DELAY               1000
+#define REBOOT_DELAY               1250
 #define REBOOT_TIMEOUT             15000
 #define SOCKET_CLOSE_TIMEOUT       120000
 #define SOCKET_CONNECT_TIMEOUT     120000
