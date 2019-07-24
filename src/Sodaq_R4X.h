@@ -272,7 +272,7 @@ public:
     uint16_t mqttReadMessages(char* buffer, size_t size, uint32_t timeout = 60 * 1000);
 
     bool mqttSetAuth(const char* name, const char* pw);
-    bool mqttSetCleanSettion(bool enabled);
+    bool mqttSetCleanSession(bool enabled);
     bool mqttSetClientId(const char* id);
     bool mqttSetInactivityTimeout(uint16_t timeout);
     bool mqttSetLocalPort(uint16_t port);

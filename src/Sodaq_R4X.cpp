@@ -1234,7 +1234,7 @@ bool Sodaq_R4X::mqttSetAuth(const char* name, const char* pw)
     return (readResponse(buffer, sizeof(buffer), "+UMQTT: ", UMQTT_TIMEOUT) == GSMResponseOK) && startsWith("4,1", buffer);
 }
 
-bool Sodaq_R4X::mqttSetCleanSettion(bool enabled)
+bool Sodaq_R4X::mqttSetCleanSession(bool enabled)
 {
     char buffer[16];
 
