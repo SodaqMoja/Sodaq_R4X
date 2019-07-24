@@ -103,6 +103,8 @@ enum TriBoolStates
 
 typedef TriBoolStates tribool_t;
 
+typedef void(*PublishHandlerPtr)(const char* topic, const char* msg);
+
 #define UNUSED(x) (void)(x)
 #define BAND_TO_MASK(x) (1 << (x - 1))
 
@@ -282,7 +284,7 @@ public:
 
     bool mqttSubscribe(const char* filter, uint8_t qos = 0, uint32_t timeout = 30 * 1000);
     bool mqttUnsubscribe(const char* filter);
-
+    void mqttSetPublishHandler(PublishHandlerPtr handler);
 
     /******************************************************************************
     * HTTP
@@ -369,6 +371,8 @@ private:
     char*     _pin;
     bool      _socketClosedBit[SOCKET_COUNT];
     size_t    _socketPendingBytes[SOCKET_COUNT];
+
+    PublishHandlerPtr _mqttPublishHandler = NULL;
 
     int8_t checkApn(const char* requiredAPN); // -1: error, 0: ip not valid => need attach, 1: valid ip
     bool   checkBandMasks(const char* bandMaskLTE, const char* bandMaskNB);

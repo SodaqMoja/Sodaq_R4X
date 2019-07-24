@@ -1363,6 +1363,13 @@ bool Sodaq_R4X::mqttUnsubscribe(const char* filter)
     return (readResponse(buffer, sizeof(buffer), "+UMQTTC: ", UMQTT_TIMEOUT) == GSMResponseOK) && startsWith("5,1", buffer);
 }
 
+void Sodaq_R4X::mqttSetPublishHandler(PublishHandlerPtr handler)
+{
+    if (handler) {
+        _mqttPublishHandler = handler;
+    }
+}
+
 
 /******************************************************************************
 * HTTP
