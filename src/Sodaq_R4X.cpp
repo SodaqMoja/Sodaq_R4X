@@ -123,7 +123,7 @@ Sodaq_R4X::Sodaq_R4X() :
     _mqttLoginResult     = -1;
     _mqttPendingMessages = -1;
     _mqttSubscribeReason = -1;
-    _networkStatusLED = 0;
+    _networkStatusLED    = 0;
     _pin                 = 0;
 
     memset(_socketClosedBit,    1, sizeof(_socketClosedBit));
@@ -249,7 +249,7 @@ bool Sodaq_R4X::connect(const char* apn, const char* uratSelect, uint8_t mnoProf
         reboot();
     }
 
-    return execCommand("AT+UDCONF=1,1") && doSIMcheck();
+    return doSIMcheck();
 }
 
 bool Sodaq_R4X::connect(const char* apn, const char* urat, const char* bandMask)
@@ -763,6 +763,8 @@ size_t Sodaq_R4X::socketRead(uint8_t socketID, uint8_t* buffer, size_t size)
         return 0;
     }
 
+    execCommand("AT+UDCONF=1,1");
+
     size = min(size, min(SODAQ_R4X_MAX_SOCKET_BUFFER, _socketPendingBytes[socketID]));
 
     char   outBuffer[SODAQ_R4X_MAX_SOCKET_BUFFER];
@@ -805,6 +807,8 @@ size_t Sodaq_R4X::socketReceive(uint8_t socketID, uint8_t* buffer, size_t size)
         return 0;
     }
 
+    execCommand("AT+UDCONF=1,1");
+
     size = min(size, min(SODAQ_R4X_MAX_SOCKET_BUFFER, _socketPendingBytes[socketID]));
 
     char   outBuffer[SODAQ_R4X_MAX_SOCKET_BUFFER];
@@ -846,6 +850,8 @@ size_t Sodaq_R4X::socketSend(uint8_t socketID, const char* remoteHost, const uin
         debugPrintln("Message exceeded maximum size!");
         return 0;
     }
+
+    execCommand("AT+UDCONF=1,1");
 
     print("AT+USOST=");
     print(socketID);
@@ -980,6 +986,8 @@ bool Sodaq_R4X::socketWaitForReceive(uint8_t socketID, uint32_t timeout)
 
 size_t Sodaq_R4X::socketWrite(uint8_t socketID, const uint8_t* buffer, size_t size)
 {
+    execCommand("AT+UDCONF=1,1");
+
     print("AT+USOWR=");
     print(socketID);
     print(",");
