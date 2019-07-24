@@ -415,10 +415,34 @@ bool Sodaq_R4X::getCellInfo(uint16_t* tac, uint32_t* cid, uint16_t* urat)
     memset(responseBuffer, 0, sizeof(responseBuffer));
 
     if ((readResponse(responseBuffer, sizeof(responseBuffer), "+CEREG: ") == GSMResponseOK) && (strlen(responseBuffer) > 0)) {
-
         if (sscanf(responseBuffer, "2,%*d,\"%hx\",\"%x\",%hi", tac, cid, urat) == 3) {
+            switch(*urat) {
+                case 7:
+                case 8: *urat = 7; break;
+                case 9: *urat = 8; break;
+            }
             return true;
         }
+        else {
+        // if +CEREG did not return the tac/cid/act
+        // lets try +CGREG for GPRS registration info
+            println("AT+CGREG=2");
+
+            if (readResponse() != GSMResponseOK) {
+                return false;
+            }
+
+             println("AT+CGREG?");
+
+             memset(responseBuffer, 0, sizeof(responseBuffer));
+
+             if ((readResponse(responseBuffer, sizeof(responseBuffer), "+CGREG: ") == GSMResponseOK) && (strlen(responseBuffer) > 0)) {
+                 if (sscanf(responseBuffer, "2,%*d,\"%hx\",\"%x\"", tac, cid) == 2) {
+                     *urat = 9;
+                     return true;
+                 }
+             }
+         }
     }
 
     return false;
