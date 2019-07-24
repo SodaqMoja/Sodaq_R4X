@@ -123,7 +123,7 @@ Sodaq_R4X::Sodaq_R4X() :
     _mqttLoginResult     = -1;
     _mqttPendingMessages = -1;
     _mqttSubscribeReason = -1;
-    _networkStatusLED    = 0;
+    _networkStatusLED = 0;
     _pin                 = 0;
 
     memset(_socketClosedBit,    1, sizeof(_socketClosedBit));
@@ -185,6 +185,8 @@ bool Sodaq_R4X::off()
     if (_onoff) {
         _onoff->off();
     }
+
+    _mqttLoginResult = -1;
 
     return !isOn();
 }
@@ -439,9 +441,9 @@ bool Sodaq_R4X::getCellInfo(uint16_t* tac, uint32_t* cid, uint16_t* urat)
              if ((readResponse(responseBuffer, sizeof(responseBuffer), "+CGREG: ") == GSMResponseOK) && (strlen(responseBuffer) > 0)) {
                  if (sscanf(responseBuffer, "2,%*d,\"%hx\",\"%x\"", tac, cid) == 2) {
                      *urat = 9;
-                     return true;
-                 }
-             }
+            return true;
+        }
+    }
          }
     }
 
@@ -1087,6 +1089,7 @@ bool Sodaq_R4X::mqttLogin(uint32_t timeout)
 bool Sodaq_R4X::mqttLogout()
 {
     char buffer[16];
+    _mqttLoginResult = -1;
 
     println("AT+UMQTTC=0");
 
