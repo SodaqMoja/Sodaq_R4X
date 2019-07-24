@@ -1183,6 +1183,8 @@ uint16_t Sodaq_R4X::mqttReadMessages(char* buffer, size_t size, uint32_t timeout
 
     uint16_t messages = 0;
     uint16_t outSize  = 0;
+    char* topicStart = 0;
+    char* messageStart = 0;
 
     while (messages < _mqttPendingMessages && !is_timedout(startTime, timeout)) {
         int count = readLn(_inputBuffer, _inputBufferSize, 250);
@@ -1192,31 +1194,56 @@ uint16_t Sodaq_R4X::mqttReadMessages(char* buffer, size_t size, uint32_t timeout
             continue;
         }
 
-        bool b = startsWith("Msg:", _inputBuffer);
-        if (b) { messages++; }
+        bool isTopic = startsWith("Topic:", _inputBuffer);
+        bool isMessage = startsWith("Msg:", _inputBuffer);
 
-        if (b || startsWith("Topic:", _inputBuffer)) {
-            if (outSize > 0 && outSize < size) {
-                buffer[outSize++] = LF;
+        if (isTopic || isMessage) {
+            // init publish msg vars when seeing a topic (topic comes first)
+            if (isTopic) {
+                topicStart = 0;
+                messageStart = 0;
+
+                outSize = 0;
             }
 
             if (outSize >= size - 1) {
                 break;
             }
 
-            count -= b ? 4 : 6;
+            uint8_t headerSize = isMessage ? strlen("Msg:") : strlen("Topic:");
+            count -= headerSize;
+            if (isTopic) {
+                count--; // remove the LF at the end
+            }
 
             if (outSize + (uint16_t)count > size - 1) {
                 count = size - 1 - outSize;
             }
 
-            memcpy(buffer + outSize, _inputBuffer + (b ? 4 : 6), count);
+            memcpy(buffer + outSize, _inputBuffer + headerSize, count);
+            if (isTopic) {
+                topicStart = buffer + outSize;
+            }
+            else { // isMessage
+                messageStart = buffer + outSize;
+            }
+
             outSize += count;
-            buffer[outSize] = 0;
+            buffer[outSize++] = 0;
+
+            // if there is already a full set of topic+message read, call the handler
+            if ((topicStart != 0) && (messageStart != 0)) {
+                messages++;
+
+                if (_mqttPublishHandler) {
+                    _mqttPublishHandler(topicStart, messageStart);
+                }
+            }
+
         }
     }
 
-    _mqttPendingMessages = 0;
+    _mqttPendingMessages -= messages;
 
     return messages;
 }
