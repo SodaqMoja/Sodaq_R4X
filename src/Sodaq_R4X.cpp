@@ -2107,6 +2107,11 @@ bool Sodaq_R4X::checkCFUN()
 
 bool Sodaq_R4X::checkCOPS(const char* requiredOperator)
 {
+    // If auto operator always send the command
+    if (strcmp(requiredOperator, AUTOMATIC_OPERATOR) == 0) {
+        return execCommand("AT+COPS=0,2", COPS_TIMEOUT);
+    }
+
     println("AT+COPS=3,2");
 
     if (readResponse() != GSMResponseOK) {
@@ -2121,10 +2126,7 @@ bool Sodaq_R4X::checkCOPS(const char* requiredOperator)
         return false;
     }
 
-    if (strcmp(requiredOperator, AUTOMATIC_OPERATOR) == 0) {
-        return ((strncmp(buffer, "0", 1) == 0) || execCommand("AT+COPS=0,2", COPS_TIMEOUT));
-    }
-    else if ((strncmp(buffer, "1", 1) == 0) && (strncmp(buffer + 5, requiredOperator, strlen(requiredOperator)) == 0)) {
+    if ((strncmp(buffer, "1", 1) == 0) && (strncmp(buffer + 5, requiredOperator, strlen(requiredOperator)) == 0)) {
         return true;
     }
     else {
@@ -2167,6 +2169,8 @@ bool Sodaq_R4X::checkProfile(const uint8_t requiredProfile)
 
 bool Sodaq_R4X::checkUrat(const char* requiredURAT)
 {
+    // Only try and skip if single URAT
+    if (strlen(requiredURAT) == 1) {
     println("AT+URAT?");
 
     char buffer[64];
@@ -2177,6 +2181,7 @@ bool Sodaq_R4X::checkUrat(const char* requiredURAT)
 
     if (strcmp(buffer, requiredURAT) == 0) {
         return true;
+    }
     }
 
     println("AT+COPS=2");
