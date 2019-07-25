@@ -42,7 +42,8 @@ POSSIBILITY OF SUCH DAMAGE.
 #define CGACT_TIMEOUT              150000
 #define COPS_TIMEOUT               180000
 #define ISCONNECTED_CSQ_TIMEOUT    10000
-#define REBOOT_DELAY               15000
+#define REBOOT_DELAY               1250
+#define REBOOT_TIMEOUT             15000
 #define SOCKET_CLOSE_TIMEOUT       120000
 #define SOCKET_CONNECT_TIMEOUT     120000
 #define SOCKET_WRITE_TIMEOUT       120000
@@ -52,8 +53,7 @@ POSSIBILITY OF SUCH DAMAGE.
 #define SODAQ_GSM_MODEM_DEFAULT_INPUT_BUFFER_SIZE 1024
 #define SODAQ_GSM_TERMINATOR_LEN (sizeof(SODAQ_GSM_TERMINATOR) - 1)
 
-#define DEFAULT_BANDMASK           "524288"
-#define DEFAULT_URAT               "8"
+#define NETWORK_STATUS_GPIO_ID     16
 
 #define DEBUG_STR_ERROR            "[ERROR]: "
 #define STR_AT                     "AT"
@@ -123,6 +123,7 @@ Sodaq_R4X::Sodaq_R4X() :
     _mqttLoginResult     = -1;
     _mqttPendingMessages = -1;
     _mqttSubscribeReason = -1;
+    _networkStatusLED = 0;
     _pin                 = 0;
 
     memset(_socketClosedBit,    1, sizeof(_socketClosedBit));
@@ -165,22 +166,33 @@ bool Sodaq_R4X::on()
         return false;
     }
 
+    // Extra read just to clear the input stream
+    readResponse(NULL, 0, NULL, 250);
+
     return isOn(); // this essentially means isOn() && isAlive()
 }
 
 // Turns the modem off and returns true if successful.
 bool Sodaq_R4X::off()
 {
+    // Safety command to shutdown, response is ignored
+    if (isOn()) {
+        println("AT+CPWROFF");
+        readResponse(NULL, 0, NULL, 1000);
+    }
+
     // No matter if it is on or off, turn it off.
     if (_onoff) {
         _onoff->off();
     }
 
+    _mqttLoginResult = -1;
+
     return !isOn();
 }
 
-// Turns on and initializes the modem, then connects to the network and activates the data connection.
-bool Sodaq_R4X::connect(const char* apn, const char* urat, const char* bandMask)
+bool Sodaq_R4X::connect(const char* apn, const char* uratSelect, uint8_t mnoProfile,
+    const char* operatorSelect, const char* bandMaskLTE, const char* bandMaskNB)
 {
     if (!on()) {
         return false;
@@ -192,6 +204,10 @@ bool Sodaq_R4X::connect(const char* apn, const char* urat, const char* bandMask)
         return false;
     }
 
+    if (!setNetworkLEDState()) {
+        return false;
+    }
+
     if (!execCommand("ATE0")) {
         return false;
     }
@@ -200,15 +216,19 @@ bool Sodaq_R4X::connect(const char* apn, const char* urat, const char* bandMask)
         return false;
     }
 
-    if (!checkCOPS()) {
+    if (!checkProfile(mnoProfile)) {
         return false;
     }
 
-    if (!checkUrat(urat != 0 ? urat : DEFAULT_URAT)) {
+    if (!checkUrat(uratSelect != 0 ? uratSelect : DEFAULT_URAT)) {
         return false;
     }
 
-    if (!checkBandMask(urat, bandMask != 0 ? bandMask : DEFAULT_BANDMASK)) {
+    if (!checkBandMasks(bandMaskLTE, bandMaskNB)) {
+        return false;
+    }
+
+    if (!checkCOPS(operatorSelect != 0 ? operatorSelect : AUTOMATIC_OPERATOR)) {
         return false;
     }
 
@@ -229,10 +249,14 @@ bool Sodaq_R4X::connect(const char* apn, const char* urat, const char* bandMask)
 
     if (millis() - tm > ATTACH_NEED_REBOOT) {
         reboot();
-        sodaq_wdt_safe_delay(REBOOT_DELAY);
     }
 
-    return execCommand("AT+UDCONF=1,1") && doSIMcheck();
+    return doSIMcheck();
+}
+
+bool Sodaq_R4X::connect(const char* apn, const char* urat, const char* bandMask)
+{
+    connect(apn, urat, SIM_ICCID, AUTOMATIC_OPERATOR, BAND_MASK_UNCHANGED, bandMask);
 }
 
 // Disconnects the modem from the network.
@@ -269,6 +293,31 @@ bool Sodaq_R4X::attachGprs(uint32_t timeout)
     return false;
 }
 
+bool Sodaq_R4X::bandMasktoStr(const uint64_t bandMask, char* str, size_t size)
+{
+    bool result = false;
+
+    uint8_t i = 0;
+    uint64_t n = bandMask;
+
+    do {
+        i++;
+    } while (n /= 10);
+
+    if (i < size) {
+        str[i] = '\0';
+        n = bandMask;
+
+        do {
+            str[--i] = (n % 10) + '0';
+        } while (n /= 10);
+
+        result = true;
+    }
+
+    return result;
+}
+
 // Gets Integrated Circuit Card ID.
 // Should be provided with a buffer of at least 21 bytes.
 // Returns true if successful.
@@ -281,6 +330,124 @@ bool Sodaq_R4X::getCCID(char* buffer, size_t size)
     println("AT+CCID");
 
     return (readResponse(buffer, size, "+CCID: ") == GSMResponseOK) && (strlen(buffer) > 0);
+}
+
+// Gets the International Mobile Subscriber Identity
+// Should be provided with a buffer of at least 21 bytes.
+// Returns true if successful.
+bool Sodaq_R4X::getIMSI(char* buffer, size_t size)
+{
+    if (buffer == NULL || size < 20 + 1) {
+        return false;
+    }
+
+    return (execCommand("AT+CIMI", DEFAULT_READ_MS, buffer, size) == GSMResponseOK) && (strlen(buffer) > 0) && (atoll(buffer) > 0);
+}
+
+bool Sodaq_R4X::getOperatorInfo(uint16_t* mcc, uint16_t* mnc)
+{
+    println("AT+COPS=3,2");
+
+    if (readResponse() != GSMResponseOK) {
+        return false;
+    }
+
+    println("AT+COPS?");
+
+    char responseBuffer[64];
+    memset(responseBuffer, 0, sizeof(responseBuffer));
+
+    uint32_t operatorCode = 0;
+
+    if ((readResponse(responseBuffer, sizeof(responseBuffer), "+COPS: ") == GSMResponseOK) && (strlen(responseBuffer) > 0)) {
+
+        if (sscanf(responseBuffer, "%*d,%*d,\"%u\"", &operatorCode) == 1) {
+            uint16_t divider = (operatorCode > 100000) ? 1000 : 100;
+
+            *mcc = operatorCode / divider;
+            *mnc = operatorCode % divider;
+
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool Sodaq_R4X::getOperatorInfoString(char* buffer, size_t size)
+{
+    if (size < 32 + 1) {
+         return false;
+    }
+
+    buffer[0] = 0;
+
+    println("AT+COPS=3,0");
+
+    if (readResponse() != GSMResponseOK) {
+        return false;
+    }
+
+    println("AT+COPS?");
+
+    char responseBuffer[64];
+    memset(responseBuffer, 0, sizeof(responseBuffer));
+
+    if ((readResponse(responseBuffer, sizeof(responseBuffer), "+COPS: ") == GSMResponseOK) && (strlen(responseBuffer) > 0)) {
+
+        if (sscanf(responseBuffer, "%*d,%*d,\"%[^\"]\"", buffer) == 1) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool Sodaq_R4X::getCellInfo(uint16_t* tac, uint32_t* cid, uint16_t* urat)
+{
+    println("AT+CEREG=2");
+
+    if (readResponse() != GSMResponseOK) {
+        return false;
+    }
+
+    println("AT+CEREG?");
+
+    char responseBuffer[64];
+    memset(responseBuffer, 0, sizeof(responseBuffer));
+
+    if ((readResponse(responseBuffer, sizeof(responseBuffer), "+CEREG: ") == GSMResponseOK) && (strlen(responseBuffer) > 0)) {
+        if (sscanf(responseBuffer, "2,%*d,\"%hx\",\"%x\",%hi", tac, cid, urat) == 3) {
+            switch(*urat) {
+                case 7:
+                case 8: *urat = 7; break;
+                case 9: *urat = 8; break;
+            }
+            return true;
+        }
+        else {
+        // if +CEREG did not return the tac/cid/act
+        // lets try +CGREG for GPRS registration info
+            println("AT+CGREG=2");
+
+            if (readResponse() != GSMResponseOK) {
+                return false;
+            }
+
+             println("AT+CGREG?");
+
+             memset(responseBuffer, 0, sizeof(responseBuffer));
+
+             if ((readResponse(responseBuffer, sizeof(responseBuffer), "+CGREG: ") == GSMResponseOK) && (strlen(responseBuffer) > 0)) {
+                 if (sscanf(responseBuffer, "2,%*d,\"%hx\",\"%x\"", tac, cid) == 2) {
+                     *urat = 9;
+            return true;
+        }
+    }
+         }
+    }
+
+    return false;
 }
 
 bool Sodaq_R4X::getEpoch(uint32_t* epoch)
@@ -314,6 +481,15 @@ bool Sodaq_R4X::getFirmwareVersion(char* buffer, size_t size)
     return execCommand("AT+CGMR", DEFAULT_READ_MS, buffer, size);
 }
 
+bool Sodaq_R4X::getFirmwareRevision(char* buffer, size_t size)
+{
+    if (buffer == NULL || size < 30 + 1) {
+        return false;
+    }
+
+    return execCommand("ATI9", DEFAULT_READ_MS, buffer, size);
+}
+
 // Gets International Mobile Equipment Identity.
 // Should be provided with a buffer of at least 16 bytes.
 // Returns true if successful.
@@ -323,7 +499,7 @@ bool Sodaq_R4X::getIMEI(char* buffer, size_t size)
         return false;
     }
 
-    return (execCommand("AT+CGSN", DEFAULT_READ_MS, buffer, size) == GSMResponseOK) && (strlen(buffer) > 0);
+    return (execCommand("AT+CGSN", DEFAULT_READ_MS, buffer, size) == GSMResponseOK) && (strlen(buffer) > 0) && (atoll(buffer) > 0);
 }
 
 SimStatuses Sodaq_R4X::getSimStatus()
@@ -519,14 +695,28 @@ bool Sodaq_R4X::socketClose(uint8_t socketID, bool async)
         println();
     }
 
+    _socketClosedBit   [socketID] = true;
+    _socketPendingBytes[socketID] = 0;
+
     if (readResponse(NULL, 0, NULL, SOCKET_CLOSE_TIMEOUT) != GSMResponseOK) {
         return false;
     }
 
-    _socketClosedBit   [socketID] = true;
-    _socketPendingBytes[socketID] = 0;
-
     return true;
+}
+
+int Sodaq_R4X::socketCloseAll() {
+
+    int closedCount = 0;
+
+    for (uint8_t i = 0; i < SOCKET_COUNT; i++) {
+        if (socketClose(i, false)) {
+            closedCount++;
+        }
+    }
+
+    // return the number of sockets we closed
+    return closedCount;
 }
 
 bool Sodaq_R4X::socketConnect(uint8_t socketID, const char* remoteHost, const uint16_t remotePort)
@@ -599,6 +789,8 @@ size_t Sodaq_R4X::socketRead(uint8_t socketID, uint8_t* buffer, size_t size)
         return 0;
     }
 
+    execCommand("AT+UDCONF=1,1");
+
     size = min(size, min(SODAQ_R4X_MAX_SOCKET_BUFFER, _socketPendingBytes[socketID]));
 
     char   outBuffer[SODAQ_R4X_MAX_SOCKET_BUFFER];
@@ -641,6 +833,8 @@ size_t Sodaq_R4X::socketReceive(uint8_t socketID, uint8_t* buffer, size_t size)
         return 0;
     }
 
+    execCommand("AT+UDCONF=1,1");
+
     size = min(size, min(SODAQ_R4X_MAX_SOCKET_BUFFER, _socketPendingBytes[socketID]));
 
     char   outBuffer[SODAQ_R4X_MAX_SOCKET_BUFFER];
@@ -682,6 +876,8 @@ size_t Sodaq_R4X::socketSend(uint8_t socketID, const char* remoteHost, const uin
         debugPrintln("Message exceeded maximum size!");
         return 0;
     }
+
+    execCommand("AT+UDCONF=1,1");
 
     print("AT+USOST=");
     print(socketID);
@@ -808,7 +1004,7 @@ bool Sodaq_R4X::socketWaitForReceive(uint8_t socketID, uint32_t timeout)
             }
         }
 
-        sodaq_wdt_safe_delay(10);
+        sodaq_wdt_safe_delay(250);
     }
 
     return socketHasPendingBytes(socketID);
@@ -816,6 +1012,8 @@ bool Sodaq_R4X::socketWaitForReceive(uint8_t socketID, uint32_t timeout)
 
 size_t Sodaq_R4X::socketWrite(uint8_t socketID, const uint8_t* buffer, size_t size)
 {
+    execCommand("AT+UDCONF=1,1");
+
     print("AT+USOWR=");
     print(socketID);
     print(",");
@@ -891,6 +1089,7 @@ bool Sodaq_R4X::mqttLogin(uint32_t timeout)
 bool Sodaq_R4X::mqttLogout()
 {
     char buffer[16];
+    _mqttLoginResult = -1;
 
     println("AT+UMQTTC=0");
 
@@ -987,6 +1186,8 @@ uint16_t Sodaq_R4X::mqttReadMessages(char* buffer, size_t size, uint32_t timeout
 
     uint16_t messages = 0;
     uint16_t outSize  = 0;
+    char* topicStart = 0;
+    char* messageStart = 0;
 
     while (messages < _mqttPendingMessages && !is_timedout(startTime, timeout)) {
         int count = readLn(_inputBuffer, _inputBufferSize, 250);
@@ -996,31 +1197,56 @@ uint16_t Sodaq_R4X::mqttReadMessages(char* buffer, size_t size, uint32_t timeout
             continue;
         }
 
-        bool b = startsWith("Msg:", _inputBuffer);
-        if (b) { messages++; }
+        bool isTopic = startsWith("Topic:", _inputBuffer);
+        bool isMessage = startsWith("Msg:", _inputBuffer);
 
-        if (b || startsWith("Topic:", _inputBuffer)) {
-            if (outSize > 0 && outSize < size) {
-                buffer[outSize++] = LF;
+        if (isTopic || isMessage) {
+            // init publish msg vars when seeing a topic (topic comes first)
+            if (isTopic) {
+                topicStart = 0;
+                messageStart = 0;
+
+                outSize = 0;
             }
 
             if (outSize >= size - 1) {
                 break;
             }
 
-            count -= b ? 4 : 6;
+            uint8_t headerSize = isMessage ? strlen("Msg:") : strlen("Topic:");
+            count -= headerSize;
+            if (isTopic) {
+                count--; // remove the LF at the end
+            }
 
             if (outSize + (uint16_t)count > size - 1) {
                 count = size - 1 - outSize;
             }
 
-            memcpy(buffer + outSize, _inputBuffer + (b ? 4 : 6), count);
+            memcpy(buffer + outSize, _inputBuffer + headerSize, count);
+            if (isTopic) {
+                topicStart = buffer + outSize;
+            }
+            else { // isMessage
+                messageStart = buffer + outSize;
+            }
+
             outSize += count;
-            buffer[outSize] = 0;
+            buffer[outSize++] = 0;
+
+            // if there is already a full set of topic+message read, call the handler
+            if ((topicStart != 0) && (messageStart != 0)) {
+                messages++;
+
+                if (_mqttPublishHandler) {
+                    _mqttPublishHandler(topicStart, messageStart);
+                }
+            }
+
         }
     }
 
-    _mqttPendingMessages = 0;
+    _mqttPendingMessages -= messages;
 
     return messages;
 }
@@ -1038,7 +1264,7 @@ bool Sodaq_R4X::mqttSetAuth(const char* name, const char* pw)
     return (readResponse(buffer, sizeof(buffer), "+UMQTT: ", UMQTT_TIMEOUT) == GSMResponseOK) && startsWith("4,1", buffer);
 }
 
-bool Sodaq_R4X::mqttSetCleanSettion(bool enabled)
+bool Sodaq_R4X::mqttSetCleanSession(bool enabled)
 {
     char buffer[16];
 
@@ -1167,6 +1393,13 @@ bool Sodaq_R4X::mqttUnsubscribe(const char* filter)
     return (readResponse(buffer, sizeof(buffer), "+UMQTTC: ", UMQTT_TIMEOUT) == GSMResponseOK) && startsWith("5,1", buffer);
 }
 
+void Sodaq_R4X::mqttSetPublishHandler(PublishHandlerPtr handler)
+{
+    if (handler) {
+        _mqttPublishHandler = handler;
+    }
+}
+
 
 /******************************************************************************
 * HTTP
@@ -1231,6 +1464,10 @@ uint32_t Sodaq_R4X::httpGetHeaderSize(const char* filename)
     while (offset < file_size && state != 4) {
         size_t size;
         size = readFilePartial(filename, buffer, sizeof(buffer), offset);
+
+        if (size == 0) {
+            return 0;
+        }
 
         size_t ix;
         for (ix = 0; state != 4 && ix < sizeof(buffer); ix++) {
@@ -1803,9 +2040,10 @@ int8_t Sodaq_R4X::checkApn(const char* requiredAPN)
     return setApn(requiredAPN) ? 0 : 1;
 }
 
-bool Sodaq_R4X::checkBandMask(const char* requiredURAT, const char* requiredBankMask)
+bool Sodaq_R4X::checkBandMasks(const char* bandMaskLTE, const char* bandMaskNB)
 {
-    if (requiredURAT != NULL && strchr(requiredURAT, '8') == NULL) { // set BANDMASK for NB-Iot (URAT=8) only
+    // if no changes required
+    if ((bandMaskLTE == BAND_MASK_UNCHANGED) && (bandMaskNB == BAND_MASK_UNCHANGED)) {
         return true;
     }
 
@@ -1823,14 +2061,35 @@ bool Sodaq_R4X::checkBandMask(const char* requiredURAT, const char* requiredBank
         return false;
     }
 
-    if (strcmp(bm1, requiredBankMask) == 0) {
+    bool setLTEMask = (strcmp(bm0, bandMaskLTE) != 0) && (bandMaskLTE != BAND_MASK_UNCHANGED);
+    bool setNBMask = (strcmp(bm1, bandMaskNB) != 0) && (bandMaskNB != BAND_MASK_UNCHANGED);
+
+    // masks are both already match those requested
+    if (!setLTEMask && !setNBMask) {
         return true;
     }
 
-    print("AT+UBANDMASK=1,");
-    println(requiredBankMask);
+    print("AT+UBANDMASK=");
+    if (setLTEMask) {
+        print("0,");
+        print(bandMaskLTE);
+        if (setNBMask) {
+            print(",");
+        }
+    }
+    if (setNBMask) {
+        print("1,");
+        print(bandMaskNB);
+    }
+    println();
 
-    return (readResponse() == GSMResponseOK);
+    if (readResponse() != GSMResponseOK) {
+        return false;
+    }
+
+    reboot();
+
+    return true;
 }
 
 bool Sodaq_R4X::checkCFUN()
@@ -1846,8 +2105,19 @@ bool Sodaq_R4X::checkCFUN()
     return ((strcmp(buffer, "1") == 0) || setRadioActive(true));
 }
 
-bool Sodaq_R4X::checkCOPS()
+bool Sodaq_R4X::checkCOPS(const char* requiredOperator)
 {
+    // If auto operator always send the command
+    if (strcmp(requiredOperator, AUTOMATIC_OPERATOR) == 0) {
+        return execCommand("AT+COPS=0,2", COPS_TIMEOUT);
+    }
+
+    println("AT+COPS=3,2");
+
+    if (readResponse() != GSMResponseOK) {
+        return false;
+    }
+
     println("AT+COPS?");
 
     char buffer[64];
@@ -1856,11 +2126,51 @@ bool Sodaq_R4X::checkCOPS()
         return false;
     }
 
-    return ((strcmp(buffer, "0") == 0) || execCommand("AT+COPS=0", COPS_TIMEOUT));
+    if ((strncmp(buffer, "1", 1) == 0) && (strncmp(buffer + 5, requiredOperator, strlen(requiredOperator)) == 0)) {
+        return true;
+    }
+    else {
+        print("AT+COPS=1,2,\"");
+        print(requiredOperator);
+        println('"');
+
+        return (readResponse(NULL, 0, NULL, COPS_TIMEOUT) == GSMResponseOK);
+    }
+}
+
+bool Sodaq_R4X::checkProfile(const uint8_t requiredProfile)
+{
+    println("AT+UMNOPROF?");
+
+    char buffer[64];
+    if (readResponse(buffer, sizeof(buffer), "+UMNOPROF: ") != GSMResponseOK) {
+        return false;
+    }
+
+    if (atoi(buffer) == requiredProfile) {
+        return true;
+    }
+
+    println("AT+COPS=2");
+    if (readResponse() != GSMResponseOK) {
+        return false;
+    }
+
+    print("AT+UMNOPROF=");
+    println(requiredProfile);
+    if (readResponse() != GSMResponseOK) {
+        return false;
+    }
+
+    reboot();
+
+    return true;
 }
 
 bool Sodaq_R4X::checkUrat(const char* requiredURAT)
 {
+    // Only try and skip if single URAT
+    if (strlen(requiredURAT) == 1) {
     println("AT+URAT?");
 
     char buffer[64];
@@ -1872,11 +2182,22 @@ bool Sodaq_R4X::checkUrat(const char* requiredURAT)
     if (strcmp(buffer, requiredURAT) == 0) {
         return true;
     }
+    }
+
+    println("AT+COPS=2");
+    if (readResponse() != GSMResponseOK) {
+        return false;
+    }
 
     print("AT+URAT=");
     println(requiredURAT);
+    if (readResponse() != GSMResponseOK) {
+        return false;
+    }
 
-    return (readResponse() == GSMResponseOK);
+    reboot();
+
+    return true;
 }
 
 bool Sodaq_R4X::checkURC(char* buffer)
@@ -2030,6 +2351,16 @@ bool Sodaq_R4X::doSIMcheck()
     return false;
 }
 
+bool Sodaq_R4X::setNetworkLEDState()
+{
+    print("AT+UGPIOC=");
+    print(NETWORK_STATUS_GPIO_ID);
+    print(',');
+    (_networkStatusLED) ? println("2") : println("255");
+
+    return (readResponse() == GSMResponseOK);
+}
+
 bool Sodaq_R4X::isValidIPv4(const char* str)
 {
     uint8_t  segs  = 0; // Segment count
@@ -2179,6 +2510,21 @@ void Sodaq_R4X::reboot()
     uint32_t start = millis();
 
     while ((readResponse() != GSMResponseOK) && !is_timedout(start, 2000)) {}
+
+    // wait for the reboot to start
+    sodaq_wdt_safe_delay(REBOOT_DELAY);
+
+    while (!is_timedout(start, REBOOT_TIMEOUT)) {
+        if (getSimStatus() == SimReady) {
+            break;
+        }
+    }
+
+    // echo off again after reboot
+    execCommand("ATE0");
+
+    // extra read just to clear the input stream
+    readResponse(NULL, 0, NULL, 250);
 }
 
 bool Sodaq_R4X::setSimPin(const char* simPin)
