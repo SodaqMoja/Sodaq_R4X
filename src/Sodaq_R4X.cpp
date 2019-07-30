@@ -426,25 +426,25 @@ bool Sodaq_R4X::getCellInfo(uint16_t* tac, uint32_t* cid, uint16_t* urat)
             return true;
         }
         else {
-        // if +CEREG did not return the tac/cid/act
-        // lets try +CGREG for GPRS registration info
+            // if +CEREG did not return the tac/cid/act
+            // lets try +CGREG for GPRS registration info
             println("AT+CGREG=2");
 
             if (readResponse() != GSMResponseOK) {
                 return false;
             }
 
-             println("AT+CGREG?");
+            println("AT+CGREG?");
 
-             memset(responseBuffer, 0, sizeof(responseBuffer));
+            memset(responseBuffer, 0, sizeof(responseBuffer));
 
-             if ((readResponse(responseBuffer, sizeof(responseBuffer), "+CGREG: ") == GSMResponseOK) && (strlen(responseBuffer) > 0)) {
-                 if (sscanf(responseBuffer, "2,%*d,\"%hx\",\"%x\"", tac, cid) == 2) {
-                     *urat = 9;
-            return true;
+            if ((readResponse(responseBuffer, sizeof(responseBuffer), "+CGREG: ") == GSMResponseOK) && (strlen(responseBuffer) > 0)) {
+                if (sscanf(responseBuffer, "2,%*d,\"%hx\",\"%x\"", tac, cid) == 2) {
+                    *urat = 9;
+                    return true;
+                }
+            }
         }
-    }
-         }
     }
 
     return false;
@@ -2176,17 +2176,17 @@ bool Sodaq_R4X::checkUrat(const char* requiredURAT)
 {
     // Only try and skip if single URAT
     if (strlen(requiredURAT) == 1) {
-    println("AT+URAT?");
+        println("AT+URAT?");
 
-    char buffer[64];
+        char buffer[64];
 
-    if (readResponse(buffer, sizeof(buffer), "+URAT: ") != GSMResponseOK || strlen(buffer) == 0) {
-        return false;
-    }
+        if (readResponse(buffer, sizeof(buffer), "+URAT: ") != GSMResponseOK || strlen(buffer) == 0) {
+            return false;
+        }
 
-    if (strcmp(buffer, requiredURAT) == 0) {
-        return true;
-    }
+        if (strcmp(buffer, requiredURAT) == 0) {
+            return true;
+        }
     }
 
     println("AT+COPS=2");
