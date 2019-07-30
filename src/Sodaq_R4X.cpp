@@ -2023,7 +2023,7 @@ int8_t Sodaq_R4X::checkApn(const char* requiredAPN)
     char buffer[256];
 
     if (readResponse(buffer, sizeof(buffer), "+CGDCONT: ") != GSMResponseOK) {
-        return false;
+        return -1;
     }
 
     if (strncmp(buffer, "1,\"IP\"", 6) == 0 && strncmp(buffer + 6, ",\"\"", 3) != 0) {
@@ -2032,12 +2032,17 @@ int8_t Sodaq_R4X::checkApn(const char* requiredAPN)
 
         if (sscanf(buffer + 6, ",\"%[^\"]\",\"%[^\"]\",0,0,0,0", apn, ip) != 2) { return -1; }
 
-        if (strlen(ip) >= 7 && strcmp(ip, "0.0.0.0") != 0) { return 1; }
-
-        if (strcmp(apn, requiredAPN) == 0) { return 0; }
+        if (strcmp(apn, requiredAPN) == 0) {
+            if (strlen(ip) >= 7 && strcmp(ip, "0.0.0.0") != 0) { 
+                return 1; 
+            }
+            else {
+                return 0;
+            }
+        }
     }
 
-    return setApn(requiredAPN) ? 0 : 1;
+    return setApn(requiredAPN) ? 0 : -1;
 }
 
 bool Sodaq_R4X::checkBandMasks(const char* bandMaskLTE, const char* bandMaskNB)
