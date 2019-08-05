@@ -1098,6 +1098,7 @@ bool Sodaq_R4X::mqttLogout()
 
 void Sodaq_R4X::mqttLoop()
 {
+    sodaq_wdt_reset();
     if (!_modemStream->available()) {
         return;
     }
