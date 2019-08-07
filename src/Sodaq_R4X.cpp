@@ -685,6 +685,8 @@ bool Sodaq_R4X::getRSSIAndBER(int8_t* rssi, uint8_t* ber)
 
 bool Sodaq_R4X::socketClose(uint8_t socketID, bool async)
 {
+    socketFlush(socketID);
+    
     print("AT+USOCL=");
     print(socketID);
 
