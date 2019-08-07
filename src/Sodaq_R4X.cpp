@@ -917,7 +917,7 @@ bool Sodaq_R4X::socketSetR4KeepAlive(uint8_t socketID)
     return socketSetR4Option(socketID, 65535, 8, 1);
 }
 
-bool Sodaq_R4X::socketSetR4Option(uint8_t socketID, uint16_t level, uint16_t optName, uint8_t optValue, uint8_t optValue2)
+bool Sodaq_R4X::socketSetR4Option(uint8_t socketID, uint16_t level, uint16_t optName, uint32_t optValue, uint32_t optValue2)
 {
     print("AT+USOSO=");
     print(socketID);

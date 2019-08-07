@@ -235,7 +235,7 @@ public:
     int    socketCreate(uint16_t localPort = 0, Protocols protocol = UDP);
 
     bool   socketSetR4KeepAlive(uint8_t socketID);
-    bool   socketSetR4Option(uint8_t socketID, uint16_t level, uint16_t optName, uint8_t optValue, uint8_t optValue2 = 0);
+    bool   socketSetR4Option(uint8_t socketID, uint16_t level, uint16_t optName, uint32_t optValue, uint32_t optValue2 = 0);
 
     // Required for TCP, optional for UDP (for UDP socketConnect() + socketWrite() == socketSend())
     bool   socketConnect(uint8_t socketID, const char* remoteHost, const uint16_t remotePort);
