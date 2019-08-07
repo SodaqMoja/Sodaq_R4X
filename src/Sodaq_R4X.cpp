@@ -798,6 +798,10 @@ bool Sodaq_R4X::socketFlush(uint8_t socketID, uint32_t timeout)
         
         sodaq_wdt_safe_delay(300);
     }
+    
+    if (_socketClosedBit[socketID]) {
+        return true;
+    }
 
     return false;
 }
