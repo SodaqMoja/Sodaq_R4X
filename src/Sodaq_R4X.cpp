@@ -766,6 +766,40 @@ int Sodaq_R4X::socketCreate(uint16_t localPort, Protocols protocol)
     return socketID;
 }
 
+bool Sodaq_R4X::socketFlush(uint8_t socketID, uint32_t timeout)
+{
+    uint32_t start = millis();
+
+    while (isAlive() && (!is_timedout(start, timeout)) && (!_socketClosedBit[socketID])) {
+        print("AT+USOCTL=");
+        print(socketID);
+        println(",11");
+        
+        char buffer[32];
+
+        if (readResponse(buffer, sizeof(buffer), "+USOCTL: ") != GSMResponseOK) {
+            if (_socketClosedBit[socketID]) {
+                return true;
+            }
+            else {
+                return false;
+            }
+        }
+        
+        int pendingBytes = 0;
+        if (sscanf(buffer, "%*d,11,%d", &pendingBytes) != 1) {
+            return false;
+        }
+        else if (pendingBytes == 0){
+            return true;
+        }
+        
+        sodaq_wdt_safe_delay(300);
+    }
+
+    return false;
+}
+
 size_t Sodaq_R4X::socketGetPendingBytes(uint8_t socketID)
 {
     return _socketPendingBytes[socketID];
