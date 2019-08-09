@@ -378,7 +378,7 @@ private:
     int8_t checkApn(const char* requiredAPN); // -1: error, 0: ip not valid => need attach, 1: valid ip
     bool   checkBandMasks(const char* bandMaskLTE, const char* bandMaskNB);
     bool   checkCFUN();
-    bool   checkCOPS(const char* requiredOperator);
+    bool   checkCOPS(const char* requiredOperator, const char* requiredURAT);
     bool   checkProfile(const uint8_t requiredProfile);
     bool   checkUrat(const char* requiredURAT);
     bool   checkURC(char* buffer);

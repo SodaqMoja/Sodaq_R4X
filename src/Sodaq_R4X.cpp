@@ -228,7 +228,7 @@ bool Sodaq_R4X::connect(const char* apn, const char* uratSelect, uint8_t mnoProf
         return false;
     }
 
-    if (!checkCOPS(operatorSelect != 0 ? operatorSelect : AUTOMATIC_OPERATOR)) {
+    if (!checkCOPS(operatorSelect != 0 ? operatorSelect : AUTOMATIC_OPERATOR, uratSelect != 0 ? uratSelect : DEFAULT_URAT)) {
         return false;
     }
 
@@ -2159,10 +2159,10 @@ bool Sodaq_R4X::checkCFUN()
     return ((strcmp(buffer, "1") == 0) || setRadioActive(true));
 }
 
-bool Sodaq_R4X::checkCOPS(const char* requiredOperator)
+bool Sodaq_R4X::checkCOPS(const char* requiredOperator, const char* requiredURAT)
 {
-    // If auto operator always send the command
-    if (strcmp(requiredOperator, AUTOMATIC_OPERATOR) == 0) {
+    // If auto operator and not NB1, always send the command
+    if ((strcmp(requiredOperator, AUTOMATIC_OPERATOR) == 0) && (strcmp(requiredURAT, SODAQ_R4X_NBIOT_URAT) != 0)){
         return execCommand("AT+COPS=0,2", COPS_TIMEOUT);
     }
 
@@ -2180,7 +2180,10 @@ bool Sodaq_R4X::checkCOPS(const char* requiredOperator)
         return false;
     }
 
-    if ((strncmp(buffer, "1", 1) == 0) && (strncmp(buffer + 5, requiredOperator, strlen(requiredOperator)) == 0)) {
+    if (strcmp(requiredOperator, AUTOMATIC_OPERATOR) == 0) {
+        return ((strncmp(buffer, "0", 1) == 0) || execCommand("AT+COPS=0,2", COPS_TIMEOUT));
+    }
+    else if ((strncmp(buffer, "1", 1) == 0) && (strncmp(buffer + 5, requiredOperator, strlen(requiredOperator)) == 0)) {
         return true;
     }
     else {
