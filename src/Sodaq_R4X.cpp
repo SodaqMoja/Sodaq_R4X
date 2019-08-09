@@ -249,6 +249,14 @@ bool Sodaq_R4X::connect(const char* apn, const char* uratSelect, uint8_t mnoProf
 
     if (millis() - tm > ATTACH_NEED_REBOOT) {
         reboot();
+        
+        if (!waitForSignalQuality()) {
+            return false;
+        }
+
+        if (!attachGprs(ATTACH_TIMEOUT)) {
+            return false;
+        }
     }
 
     return doSIMcheck();
