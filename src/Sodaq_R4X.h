@@ -235,7 +235,7 @@ public:
     int    socketCreate(uint16_t localPort = 0, Protocols protocol = UDP);
 
     bool   socketSetR4KeepAlive(uint8_t socketID);
-    bool   socketSetR4Option(uint8_t socketID, uint16_t level, uint16_t optName, uint8_t optValue, uint8_t optValue2 = 0);
+    bool   socketSetR4Option(uint8_t socketID, uint16_t level, uint16_t optName, uint32_t optValue, uint32_t optValue2 = 0);
 
     // Required for TCP, optional for UDP (for UDP socketConnect() + socketWrite() == socketSend())
     bool   socketConnect(uint8_t socketID, const char* remoteHost, const uint16_t remotePort);
@@ -252,6 +252,7 @@ public:
 
     bool   socketClose(uint8_t socketID, bool async = false);
     int    socketCloseAll();
+    bool   socketFlush(uint8_t socketID, uint32_t timeout = 10000);
     bool   socketIsClosed(uint8_t socketID);
     bool   socketWaitForClose(uint8_t socketID, uint32_t timeout);
 
@@ -377,7 +378,7 @@ private:
     int8_t checkApn(const char* requiredAPN); // -1: error, 0: ip not valid => need attach, 1: valid ip
     bool   checkBandMasks(const char* bandMaskLTE, const char* bandMaskNB);
     bool   checkCFUN();
-    bool   checkCOPS(const char* requiredOperator);
+    bool   checkCOPS(const char* requiredOperator, const char* requiredURAT);
     bool   checkProfile(const uint8_t requiredProfile);
     bool   checkUrat(const char* requiredURAT);
     bool   checkURC(char* buffer);

@@ -228,7 +228,7 @@ bool Sodaq_R4X::connect(const char* apn, const char* uratSelect, uint8_t mnoProf
         return false;
     }
 
-    if (!checkCOPS(operatorSelect != 0 ? operatorSelect : AUTOMATIC_OPERATOR)) {
+    if (!checkCOPS(operatorSelect != 0 ? operatorSelect : AUTOMATIC_OPERATOR, uratSelect != 0 ? uratSelect : DEFAULT_URAT)) {
         return false;
     }
 
@@ -249,6 +249,14 @@ bool Sodaq_R4X::connect(const char* apn, const char* uratSelect, uint8_t mnoProf
 
     if (millis() - tm > ATTACH_NEED_REBOOT) {
         reboot();
+        
+        if (!waitForSignalQuality()) {
+            return false;
+        }
+
+        if (!attachGprs(ATTACH_TIMEOUT)) {
+            return false;
+        }
     }
 
     return doSIMcheck();
@@ -426,25 +434,25 @@ bool Sodaq_R4X::getCellInfo(uint16_t* tac, uint32_t* cid, uint16_t* urat)
             return true;
         }
         else {
-        // if +CEREG did not return the tac/cid/act
-        // lets try +CGREG for GPRS registration info
+            // if +CEREG did not return the tac/cid/act
+            // lets try +CGREG for GPRS registration info
             println("AT+CGREG=2");
 
             if (readResponse() != GSMResponseOK) {
                 return false;
             }
 
-             println("AT+CGREG?");
+            println("AT+CGREG?");
 
-             memset(responseBuffer, 0, sizeof(responseBuffer));
+            memset(responseBuffer, 0, sizeof(responseBuffer));
 
-             if ((readResponse(responseBuffer, sizeof(responseBuffer), "+CGREG: ") == GSMResponseOK) && (strlen(responseBuffer) > 0)) {
-                 if (sscanf(responseBuffer, "2,%*d,\"%hx\",\"%x\"", tac, cid) == 2) {
-                     *urat = 9;
-            return true;
+            if ((readResponse(responseBuffer, sizeof(responseBuffer), "+CGREG: ") == GSMResponseOK) && (strlen(responseBuffer) > 0)) {
+                if (sscanf(responseBuffer, "2,%*d,\"%hx\",\"%x\"", tac, cid) == 2) {
+                    *urat = 9;
+                    return true;
+                }
+            }
         }
-    }
-         }
     }
 
     return false;
@@ -685,6 +693,8 @@ bool Sodaq_R4X::getRSSIAndBER(int8_t* rssi, uint8_t* ber)
 
 bool Sodaq_R4X::socketClose(uint8_t socketID, bool async)
 {
+    socketFlush(socketID);
+    
     print("AT+USOCL=");
     print(socketID);
 
@@ -764,6 +774,44 @@ int Sodaq_R4X::socketCreate(uint16_t localPort, Protocols protocol)
     _socketPendingBytes[socketID] = 0;
 
     return socketID;
+}
+
+bool Sodaq_R4X::socketFlush(uint8_t socketID, uint32_t timeout)
+{
+    uint32_t start = millis();
+
+    while (isAlive() && (!is_timedout(start, timeout)) && (!_socketClosedBit[socketID])) {
+        print("AT+USOCTL=");
+        print(socketID);
+        println(",11");
+        
+        char buffer[32];
+
+        if (readResponse(buffer, sizeof(buffer), "+USOCTL: ") != GSMResponseOK) {
+            if (_socketClosedBit[socketID]) {
+                return true;
+            }
+            else {
+                return false;
+            }
+        }
+        
+        int pendingBytes = 0;
+        if (sscanf(buffer, "%*d,11,%d", &pendingBytes) != 1) {
+            return false;
+        }
+        else if (pendingBytes == 0){
+            return true;
+        }
+        
+        sodaq_wdt_safe_delay(300);
+    }
+    
+    if (_socketClosedBit[socketID]) {
+        return true;
+    }
+
+    return false;
 }
 
 size_t Sodaq_R4X::socketGetPendingBytes(uint8_t socketID)
@@ -917,7 +965,7 @@ bool Sodaq_R4X::socketSetR4KeepAlive(uint8_t socketID)
     return socketSetR4Option(socketID, 65535, 8, 1);
 }
 
-bool Sodaq_R4X::socketSetR4Option(uint8_t socketID, uint16_t level, uint16_t optName, uint8_t optValue, uint8_t optValue2)
+bool Sodaq_R4X::socketSetR4Option(uint8_t socketID, uint16_t level, uint16_t optName, uint32_t optValue, uint32_t optValue2)
 {
     print("AT+USOSO=");
     print(socketID);
@@ -1098,6 +1146,7 @@ bool Sodaq_R4X::mqttLogout()
 
 void Sodaq_R4X::mqttLoop()
 {
+    sodaq_wdt_reset();
     if (!_modemStream->available()) {
         return;
     }
@@ -2023,7 +2072,7 @@ int8_t Sodaq_R4X::checkApn(const char* requiredAPN)
     char buffer[256];
 
     if (readResponse(buffer, sizeof(buffer), "+CGDCONT: ") != GSMResponseOK) {
-        return false;
+        return -1;
     }
 
     if (strncmp(buffer, "1,\"IP\"", 6) == 0 && strncmp(buffer + 6, ",\"\"", 3) != 0) {
@@ -2032,12 +2081,17 @@ int8_t Sodaq_R4X::checkApn(const char* requiredAPN)
 
         if (sscanf(buffer + 6, ",\"%[^\"]\",\"%[^\"]\",0,0,0,0", apn, ip) != 2) { return -1; }
 
-        if (strlen(ip) >= 7 && strcmp(ip, "0.0.0.0") != 0) { return 1; }
-
-        if (strcmp(apn, requiredAPN) == 0) { return 0; }
+        if (strcmp(apn, requiredAPN) == 0) {
+            if (strlen(ip) >= 7 && strcmp(ip, "0.0.0.0") != 0) { 
+                return 1; 
+            }
+            else {
+                return 0;
+            }
+        }
     }
 
-    return setApn(requiredAPN) ? 0 : 1;
+    return setApn(requiredAPN) ? 0 : -1;
 }
 
 bool Sodaq_R4X::checkBandMasks(const char* bandMaskLTE, const char* bandMaskNB)
@@ -2105,10 +2159,10 @@ bool Sodaq_R4X::checkCFUN()
     return ((strcmp(buffer, "1") == 0) || setRadioActive(true));
 }
 
-bool Sodaq_R4X::checkCOPS(const char* requiredOperator)
+bool Sodaq_R4X::checkCOPS(const char* requiredOperator, const char* requiredURAT)
 {
-    // If auto operator always send the command
-    if (strcmp(requiredOperator, AUTOMATIC_OPERATOR) == 0) {
+    // If auto operator and not NB1, always send the command
+    if ((strcmp(requiredOperator, AUTOMATIC_OPERATOR) == 0) && (strcmp(requiredURAT, SODAQ_R4X_NBIOT_URAT) != 0)){
         return execCommand("AT+COPS=0,2", COPS_TIMEOUT);
     }
 
@@ -2126,7 +2180,10 @@ bool Sodaq_R4X::checkCOPS(const char* requiredOperator)
         return false;
     }
 
-    if ((strncmp(buffer, "1", 1) == 0) && (strncmp(buffer + 5, requiredOperator, strlen(requiredOperator)) == 0)) {
+    if (strcmp(requiredOperator, AUTOMATIC_OPERATOR) == 0) {
+        return ((strncmp(buffer, "0", 1) == 0) || execCommand("AT+COPS=0,2", COPS_TIMEOUT));
+    }
+    else if ((strncmp(buffer, "1", 1) == 0) && (strncmp(buffer + 5, requiredOperator, strlen(requiredOperator)) == 0)) {
         return true;
     }
     else {
@@ -2171,17 +2228,17 @@ bool Sodaq_R4X::checkUrat(const char* requiredURAT)
 {
     // Only try and skip if single URAT
     if (strlen(requiredURAT) == 1) {
-    println("AT+URAT?");
+        println("AT+URAT?");
 
-    char buffer[64];
+        char buffer[64];
 
-    if (readResponse(buffer, sizeof(buffer), "+URAT: ") != GSMResponseOK || strlen(buffer) == 0) {
-        return false;
-    }
+        if (readResponse(buffer, sizeof(buffer), "+URAT: ") != GSMResponseOK || strlen(buffer) == 0) {
+            return false;
+        }
 
-    if (strcmp(buffer, requiredURAT) == 0) {
-        return true;
-    }
+        if (strcmp(buffer, requiredURAT) == 0) {
+            return true;
+        }
     }
 
     println("AT+COPS=2");

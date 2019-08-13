@@ -35,7 +35,9 @@ POSSIBILITY OF SUCH DAMAGE.
 #define MODEM_STREAM     Serial1
 
 #define CURRENT_APN      "data.mono"
-#define CURRENT_URAT     "7"
+#define CURRENT_OPERATOR AUTOMATIC_OPERATOR
+#define CURRENT_URAT     SODAQ_R4X_LTEM_URAT
+#define CURRENT_MNO_PROFILE MNOProfiles::SWD_DEFAULT
 #define HTTP_HOST        "time.sodaq.net"
 #define HTTP_PORT        80
 #define HTTP_QUERY       "/"
@@ -46,14 +48,17 @@ static bool isReady;
 
 void setup()
 {
-    while (!CONSOLE_STREAM);
-    CONSOLE_STREAM.println("Booting up...");
+    while ((!CONSOLE_STREAM) && (millis() < 10000)){
+        // Wait max 10 sec for the CONSOLE_STREAM to open
+    }
 
+    CONSOLE_STREAM.begin(115200);
     MODEM_STREAM.begin(r4x.getDefaultBaudrate());
+
     r4x.setDiag(CONSOLE_STREAM);
     r4x.init(&saraR4xxOnOff, MODEM_STREAM);
 
-    isReady = r4x.connect(CURRENT_APN, CURRENT_URAT);
+    isReady = r4x.connect(CURRENT_APN, CURRENT_URAT, CURRENT_MNO_PROFILE, CURRENT_OPERATOR, BAND_MASK_UNCHANGED, BAND_MASK_UNCHANGED);
     CONSOLE_STREAM.println(isReady ? "Network connected" : "Network connection failed");
 
     CONSOLE_STREAM.println("Setup done");
