@@ -34,12 +34,43 @@ POSSIBILITY OF SUCH DAMAGE.
 #define CONSOLE_STREAM   SerialUSB
 #define MODEM_STREAM     Serial1
 
+// Uncomment your operator
+// #define MONOGOTO
+// #define VODAFONE_LTEM
+// #define VODAFONE_NBIOT
+// #define CUSTOM
+
+#if defined(MONOGOTO)
 #define CURRENT_APN      "data.mono"
 #define CURRENT_OPERATOR AUTOMATIC_OPERATOR
 #define CURRENT_URAT     SODAQ_R4X_LTEM_URAT
-#define CURRENT_MNO_PROFILE MNOProfiles::SWD_DEFAULT
+#define CURRENT_MNO_PROFILE MNOProfiles::STANDARD_EUROPE
+#elif defined(VODAFONE_LTEM)
+#define CURRENT_APN      "live.vodafone.com"
+#define CURRENT_OPERATOR AUTOMATIC_OPERATOR
+#define CURRENT_URAT     SODAQ_R4X_LTEM_URAT
+#define CURRENT_MNO_PROFILE MNOProfiles::VODAFONE
+#elif defined(VODAFONE_NBIOT)
+#define CURRENT_APN      "nb.inetd.gdsp"
+#define CURRENT_OPERATOR AUTOMATIC_OPERATOR
+#define CURRENT_URAT     SODAQ_R4X_NBIOT_URAT
+#define CURRENT_MNO_PROFILE MNOProfiles::VODAFONE
+#define NBIOT_BANDMASK "524288"
+#elif defined(CUSTOM)
+#define CURRENT_APN      "[your apn]"
+#define CURRENT_OPERATOR AUTOMATIC_OPERATOR
+#define CURRENT_URAT     SODAQ_R4X_LTEM_URAT
+#define CURRENT_MNO_PROFILE MNOProfiles::SIM_ICCID
+#else 
+#error "Please define a operator"
+#endif
+
 #define MQTT_SERVER_NAME "test.mosquitto.org"
 #define MQTT_SERVER_PORT 1883
+
+#ifndef NBIOT_BANDMASK
+#define NBIOT_BANDMASK BAND_MASK_UNCHANGED
+#endif
 
 static Sodaq_R4X r4x;
 static Sodaq_SARA_R4XX_OnOff saraR4xxOnOff;
@@ -57,7 +88,7 @@ void setup()
     r4x.setDiag(CONSOLE_STREAM);
     r4x.init(&saraR4xxOnOff, MODEM_STREAM);
 
-    isReady = r4x.connect(CURRENT_APN, CURRENT_URAT, CURRENT_MNO_PROFILE, CURRENT_OPERATOR, BAND_MASK_UNCHANGED, BAND_MASK_UNCHANGED);
+    isReady = r4x.connect(CURRENT_APN, CURRENT_URAT, CURRENT_MNO_PROFILE, CURRENT_OPERATOR, BAND_MASK_UNCHANGED, NBIOT_BANDMASK);
 
     CONSOLE_STREAM.println(isReady ? "Network connected" : "Network connection failed");
 
