@@ -48,6 +48,7 @@ POSSIBILITY OF SUCH DAMAGE.
 #define SOCKET_CONNECT_TIMEOUT     120000
 #define SOCKET_WRITE_TIMEOUT       120000
 #define UMQTT_TIMEOUT              60000
+#define POWER_OFF_DELAY            5000
 
 #define SODAQ_GSM_TERMINATOR "\r\n"
 #define SODAQ_GSM_MODEM_DEFAULT_INPUT_BUFFER_SIZE 1024
@@ -179,6 +180,7 @@ bool Sodaq_R4X::off()
     if (isOn()) {
         println("AT+CPWROFF");
         readResponse(NULL, 0, NULL, 1000);
+        sodaq_wdt_safe_delay(POWER_OFF_DELAY);
     }
 
     // No matter if it is on or off, turn it off.
@@ -2956,9 +2958,6 @@ void Sodaq_SARA_R4XX_OnOff::off()
     digitalWrite(SARA_ENABLE, LOW);
     digitalWrite(SARA_TX_ENABLE, LOW);
 
-    // Should be instant
-    // Let's wait a little, but not too long
-    delay(50);
     _onoff_status = false;
     #endif
 }
