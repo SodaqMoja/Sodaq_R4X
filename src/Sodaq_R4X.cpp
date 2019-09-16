@@ -2956,9 +2956,6 @@ void Sodaq_SARA_R4XX_OnOff::off()
     digitalWrite(SARA_ENABLE, LOW);
     digitalWrite(SARA_TX_ENABLE, LOW);
 
-    // Should be instant
-    // Let's wait a little, but not too long
-    delay(50);
     _onoff_status = false;
     #endif
 }
