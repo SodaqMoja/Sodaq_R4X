@@ -2125,22 +2125,22 @@ bool Sodaq_R4X::checkBandMasks(const char* bandMaskLTE, const char* bandMaskNB)
         return true;
     }
 
-    print("AT+UBANDMASK=");
     if (setLTEMask) {
+        print("AT+UBANDMASK=");
         print("0,");
-        print(bandMaskLTE);
-        if (setNBMask) {
-            print(",");
+        println(bandMaskLTE);
+        if (readResponse() != GSMResponseOK) {
+            return false;
         }
     }
-    if (setNBMask) {
-        print("1,");
-        print(bandMaskNB);
-    }
-    println();
 
-    if (readResponse() != GSMResponseOK) {
-        return false;
+    if (setNBMask) {
+        print("AT+UBANDMASK=");
+        print("1,");
+        println(bandMaskNB);
+        if (readResponse() != GSMResponseOK) {
+            return false;
+        }
     }
 
     reboot();
