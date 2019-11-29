@@ -2125,6 +2125,10 @@ bool Sodaq_R4X::checkBandMasks(const char* bandMaskLTE, const char* bandMaskNB)
         return true;
     }
 
+    if (!setRadioActive(false)) {
+        return false;
+    }
+
     if (setLTEMask) {
         print("AT+UBANDMASK=");
         print("0,");
@@ -2210,8 +2214,7 @@ bool Sodaq_R4X::checkProfile(const uint8_t requiredProfile)
         return true;
     }
 
-    println("AT+COPS=2");
-    if (readResponse() != GSMResponseOK) {
+    if (!setRadioActive(false)) {
         return false;
     }
 
@@ -2243,8 +2246,7 @@ bool Sodaq_R4X::checkUrat(const char* requiredURAT)
         }
     }
 
-    println("AT+COPS=2");
-    if (readResponse() != GSMResponseOK) {
+    if (!setRadioActive(false)) {
         return false;
     }
 
