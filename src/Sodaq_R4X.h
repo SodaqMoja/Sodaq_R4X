@@ -161,9 +161,9 @@ public:
     // To be used when initializing the modem stream for the first time.
     uint32_t getDefaultBaudrate() { return 115200; };
 
-    // Sets the optional "Diagnostics and Debug" stream.
-    void setDiag(Stream &stream) { _diagStream = &stream; }
-    void setDiag(Stream *stream) { _diagStream = stream; }
+    // Sets the optional "Diagnostics and Debug" print.
+    void setDiag(Print &print) { _diagPrint = &print; }
+    void setDiag(Print *print) { _diagPrint = print; }
 
     // Sets the size of the input buffer.
     // Needs to be called before init().
@@ -413,7 +413,7 @@ private:
     Stream* _modemStream;
 
     // The (optional) stream to show debug information.
-    Stream* _diagStream;
+    Print* _diagPrint;
 
     // The size of the input buffer. Equals SODAQ_GSM_MODEM_DEFAULT_INPUT_BUFFER_SIZE
     // by default or (optionally) a user-defined value when using USE_DYNAMIC_BUFFER.
