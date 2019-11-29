@@ -78,8 +78,8 @@ POSSIBILITY OF SUCH DAMAGE.
 #define STR(x) STR_HELPER(x)
 
 #ifdef DEBUG
-#define debugPrint(...)   { if (_diagStream) _diagStream->print(__VA_ARGS__); }
-#define debugPrintln(...) { if (_diagStream) _diagStream->println(__VA_ARGS__); }
+#define debugPrint(...)   { if (_diagPrint) _diagPrint->print(__VA_ARGS__); }
+#define debugPrintln(...) { if (_diagPrint) _diagPrint->println(__VA_ARGS__); }
 #warning "Debug mode is ON"
 #else
 #define debugPrint(...)
@@ -110,7 +110,7 @@ static uint8_t httpRequestMapping[] = {
 
 Sodaq_R4X::Sodaq_R4X() :
     _modemStream(0),
-    _diagStream(0),
+    _diagPrint(0),
     _appendCommand(false),
     _CSQtime(0),
     _startOn(0)
