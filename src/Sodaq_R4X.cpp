@@ -35,12 +35,13 @@ POSSIBILITY OF SUCH DAMAGE.
 
 //#define DEBUG
 
-#define EPOCH_TIME_OFF             946684800  /* This is 1st January 2000, 00:00:00 in epoch time */
-#define EPOCH_TIME_YEAR_OFF        100        /* years since 1900 */
-#define ATTACH_NEED_REBOOT         40000
-#define REBOOT_DELAY               1250
-#define REBOOT_TIMEOUT             15000
-#define POWER_OFF_DELAY            5000
+#define EPOCH_TIME_OFF          946684800  /* This is 1st January 2000, 00:00:00 in epoch time */
+#define EPOCH_TIME_YEAR_OFF     100        /* years since 1900 */
+#define POWER_ON_DELAY          2000
+#define ATTACH_NEED_REBOOT      40000
+#define REBOOT_DELAY            1250
+#define REBOOT_TIMEOUT          15000
+#define POWER_OFF_DELAY         5000
 
 #define SODAQ_GSM_TERMINATOR "\r\n"
 #define SODAQ_GSM_MODEM_DEFAULT_INPUT_BUFFER_SIZE 1024
@@ -150,7 +151,7 @@ Sodaq_R4X::Sodaq_R4X() :
     _umqtt_timeout = R4X_DEFAULT_UMQTT_TIMEOUT;
 }
 
-// Initializes the modem instance. Sets the modem stream and the on-off power pins.
+// Initializes the modem instance. Sets the modem UART and the on-off power pins.
 void Sodaq_R4X::init(Sodaq_OnOffBee* onoff, Uart& uart, uint32_t baud, uint8_t cid)
 {
     debugPrintln("[init] started.");
@@ -173,6 +174,9 @@ bool Sodaq_R4X::on()
 
     if (!isOn() && _onoff) {
         _onoff->on();
+
+        // wait for the modem to start
+        sodaq_wdt_safe_delay(POWER_ON_DELAY);
 
         uint32_t baud = determineBaudRate();
         if (baud == 0) {
@@ -261,12 +265,13 @@ uint32_t Sodaq_R4X::determineBaudRate()
     };
     bool timeout;
     uint32_t baud;
+    const uint8_t retry_count = 5;
 
     for (size_t ix = 0; ix < DIM(baud_rates); ix++) {
         baud = baud_rates[ix];
         _modemUART->begin(baud);
         timeout = true;
-        for (uint8_t i = 0; i < 10; i++) {
+        for (uint8_t i = 0; i < retry_count; i++) {
             if (isAlive()) {
                 timeout = false;
                 break;
@@ -508,7 +513,7 @@ bool Sodaq_R4X::getOperatorInfo(uint16_t* mcc, uint16_t* mnc)
     unsigned long operatorCode = 0;
 
     if ((readResponse(responseBuffer, sizeof(responseBuffer), "+COPS: ") == GSMResponseOK) &&
-            (strlen(responseBuffer) > 0)) {
+        (strlen(responseBuffer) > 0)) {
         // Expect something like this: 0,0,"dddddd"
         // 5 or 6 characters long for numeric format (MCC/MNC codes)
         if (sscanf(responseBuffer, "%*d,%*d,\"%lu\"", &operatorCode) == 1) {
@@ -823,7 +828,7 @@ void Sodaq_R4X::setPin(const char * pin)
 bool Sodaq_R4X::setRadioActive(bool on)
 {
     print("AT+CFUN=");
-    println(on ? "1" : "0");
+    println(on ? '1' : '0');
 
     return (readResponse() == GSMResponseOK);
 }
