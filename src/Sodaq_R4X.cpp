@@ -1118,7 +1118,8 @@ size_t Sodaq_R4X::socketSend(uint8_t socketID, const char* remoteHost, const uin
 
     int retSocketID;
     int sentLength;
-    if ((sscanf(outBuffer, "%d,%d", &retSocketID, &sentLength) != 2) || (retSocketID < 0) || (retSocketID > SOCKET_COUNT)) {
+    if ((sscanf(outBuffer, "%d,%d", &retSocketID, &sentLength) != 2) || (retSocketID != socketID)) {
+        /* Wrong socket or unexpected other result */
         return 0;
     }
 
