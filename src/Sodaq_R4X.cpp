@@ -429,7 +429,8 @@ bool Sodaq_R4X::getOperatorInfo(uint16_t* mcc, uint16_t* mnc)
 
 bool Sodaq_R4X::getOperatorInfoString(char* buffer, size_t size)
 {
-    if (size < 32 + 1) {
+    // may be up to 24 characters long for long alphanumeric format
+    if (size < 24 + 1) {
          return false;
     }
 
@@ -446,7 +447,7 @@ bool Sodaq_R4X::getOperatorInfoString(char* buffer, size_t size)
     memset(responseBuffer, 0, sizeof(responseBuffer));
 
     if ((readResponse(responseBuffer, sizeof(responseBuffer), "+COPS: ") == GSMResponseOK) && (strlen(responseBuffer) > 0)) {
-
+        // Let's hope for the best, that we don't overflow the buffer
         if (sscanf(responseBuffer, "%*d,%*d,\"%[^\"]\"", buffer) == 1) {
             return true;
         }
