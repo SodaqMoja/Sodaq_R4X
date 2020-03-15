@@ -184,7 +184,7 @@ bool Sodaq_R4X::on()
     }
 
     if (timeout) {
-        debugPrintln("Error: No Reply from Modem");
+        debugPrintln("[R4X] ERROR: No Reply from Modem");
         return false;
     }
 
@@ -247,7 +247,7 @@ bool Sodaq_R4X::enableHexMode()
             }
         }
         if (!_hexMode) {
-            debugPrintln("ERROR: Failed to set HEX mode");
+            debugPrintln("[R4X] ERROR: Failed to set HEX mode");
         }
     }
     return _hexMode;
@@ -673,10 +673,13 @@ bool Sodaq_R4X::isConnected()
 // Returns true if defined IP4 address is not 0.0.0.0.
 bool Sodaq_R4X::isDefinedIP4()
 {
+    // FIXME Use AT+CGPADDR=1. That is, if we are sure we use cid (context identifier) 1.
     println("AT+CGDCONT?");
 
     char buffer[256];
 
+    // Expect response like this (already skipped "+CGDCONT: "):
+    //     1,"IP","data.mono","10.140.4.195",0,0,0,0
     if (readResponse(buffer, sizeof(buffer), "+CGDCONT: ") != GSMResponseOK) {
         return false;
     }
@@ -954,7 +957,7 @@ size_t Sodaq_R4X::socketRead(uint8_t socketID, uint8_t* buffer, size_t size)
 {
     if (!socketHasPendingBytes(socketID)) {
         // no URC has happened, no socket to read
-        debugPrintln("Reading from without available bytes!");
+        debugPrintln("[R4X] ERROR: Reading from socket without bytes available");
         return 0;
     }
 
@@ -1009,7 +1012,7 @@ size_t Sodaq_R4X::socketReceive(uint8_t socketID, uint8_t* buffer, size_t size)
 {
     if (!socketHasPendingBytes(socketID)) {
         // no URC has happened, no socket to read
-        debugPrintln("Reading from without available bytes!");
+        debugPrintln("[R4X] ERROR: Reading from socket without bytes available");
         return 0;
     }
 
@@ -1064,7 +1067,7 @@ size_t Sodaq_R4X::socketSend(uint8_t socketID, const char* remoteHost, const uin
                              const uint8_t* buffer, size_t size)
 {
     if (size > SODAQ_MAX_SEND_MESSAGE_SIZE) {
-        debugPrintln("Message exceeded maximum size!");
+        debugPrintln("[R4X] ERROR: Message exceeded maximum size!");
         return 0;
     }
 
@@ -2433,12 +2436,12 @@ bool Sodaq_R4X::checkURC(char* buffer)
     char param3[1024];                                  // WARNING! Large allocation on stack
 
     if (sscanf(buffer, "+UFOTAS: %d,%d", &param1, &param2) == 2) {
-        #ifdef DEBUG
+#ifdef DEBUG
         debugPrint("Unsolicited: FOTA: ");
         debugPrint(param1);
         debugPrint(", ");
         debugPrintln(param2);
-        #endif
+#endif
 
         return true;
     }
