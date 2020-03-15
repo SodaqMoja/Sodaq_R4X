@@ -132,6 +132,9 @@ Sodaq_R4X::Sodaq_R4X() :
     _networkStatusLED    = 0;
     _pin                 = 0;
 
+    _cid                 = 0;
+    _httpGetHeaderSize   = 0;
+
     memset(_socketClosedBit,    1, sizeof(_socketClosedBit));
     memset(_socketPendingBytes, 0, sizeof(_socketPendingBytes));
 }
