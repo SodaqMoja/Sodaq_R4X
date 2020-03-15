@@ -140,8 +140,11 @@ Sodaq_R4X::Sodaq_R4X() :
     _cid                 = 0;
     _httpGetHeaderSize   = 0;
 
-    for (size_t ix = 0; ix < DIM(_socketClosedBit); ix++) {
-        _socketClosedBit[ix] = true;
+    /*
+     * Assume all socket are closed
+     */
+    for (size_t ix = 0; ix < DIM(_socketClosed); ix++) {
+        _socketClosed[ix] = true;
     }
     memset(_socketPendingBytes, 0, sizeof(_socketPendingBytes));
 }
@@ -788,7 +791,7 @@ bool Sodaq_R4X::socketClose(uint8_t socketID, bool async)
         println();
     }
 
-    _socketClosedBit[socketID] = true;
+    _socketClosed[socketID] = true;
     _socketPendingBytes[socketID] = 0;
 
     if (readResponse(NULL, 0, NULL, SOCKET_CLOSE_TIMEOUT) != GSMResponseOK) {
@@ -823,7 +826,7 @@ bool Sodaq_R4X::socketConnect(uint8_t socketID, const char* remoteHost, const ui
 
     bool b = readResponse(NULL, 0, NULL, SOCKET_CONNECT_TIMEOUT) == GSMResponseOK;
 
-    _socketClosedBit[socketID] = !b;
+    _socketClosed[socketID] = !b;
 
     return b;
 }
@@ -855,7 +858,7 @@ int Sodaq_R4X::socketCreate(uint16_t localPort, Protocols protocol)
 
     /* Start with socket closed
      */
-    _socketClosedBit[socketID] = true;
+    _socketClosed[socketID] = true;
     _socketPendingBytes[socketID] = 0;
 
     return socketID;
@@ -868,7 +871,7 @@ bool Sodaq_R4X::socketFlush(uint8_t socketID, uint32_t timeout)
 {
     uint32_t start = millis();
 
-    while (isAlive() && (!is_timedout(start, timeout)) && (!_socketClosedBit[socketID])) {
+    while (isAlive() && (!is_timedout(start, timeout)) && (!_socketClosed[socketID])) {
         print("AT+USOCTL=");
         print(socketID);
         println(",11");
@@ -878,7 +881,7 @@ bool Sodaq_R4X::socketFlush(uint8_t socketID, uint32_t timeout)
             /* We did not get an OK.
              * If the socket was closed then assume the flush went fine.
              */
-            if (_socketClosedBit[socketID]) {
+            if (_socketClosed[socketID]) {
                 return true;
             }
             else {
@@ -900,7 +903,7 @@ bool Sodaq_R4X::socketFlush(uint8_t socketID, uint32_t timeout)
     /* FIXME In case the socket is closed or the modem did not respond anymore
      * then assume the flush went fine.
      */
-    if (_socketClosedBit[socketID]) {
+    if (_socketClosed[socketID]) {
         return true;
     }
 
@@ -919,7 +922,7 @@ bool Sodaq_R4X::socketHasPendingBytes(uint8_t socketID)
 
 bool Sodaq_R4X::socketIsClosed(uint8_t socketID)
 {
-    return _socketClosedBit[socketID];
+    return _socketClosed[socketID];
 }
 
 /*
@@ -2516,7 +2519,7 @@ bool Sodaq_R4X::checkURC(char* buffer)
         debugPrintln(param1);
 
         if (param1 >= 0 && param1 < SOCKET_COUNT) {
-            _socketClosedBit[param1] = true;
+            _socketClosed[param1] = true;
         }
 
         return true;

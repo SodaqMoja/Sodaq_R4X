@@ -375,7 +375,7 @@ private:
     int8_t    _mqttSubscribeReason;
     bool      _networkStatusLED;
     char*     _pin;
-    bool      _socketClosedBit[SOCKET_COUNT];
+    bool      _socketClosed[SOCKET_COUNT];
     size_t    _socketPendingBytes[SOCKET_COUNT];
 
     PublishHandlerPtr _mqttPublishHandler = NULL;
