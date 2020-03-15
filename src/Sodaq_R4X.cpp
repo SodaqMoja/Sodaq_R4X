@@ -80,6 +80,11 @@ POSSIBILITY OF SUCH DAMAGE.
 #define STR_HELPER(x) #x
 #define STR(x) STR_HELPER(x)
 
+/**
+ * DIM is a define for the array size
+ */
+#define DIM(x)          (sizeof(x) / sizeof(x[0]))
+
 #ifdef DEBUG
 #define debugPrint(...)   { if (_diagPrint) _diagPrint->print(__VA_ARGS__); }
 #define debugPrintln(...) { if (_diagPrint) _diagPrint->println(__VA_ARGS__); }
@@ -135,7 +140,9 @@ Sodaq_R4X::Sodaq_R4X() :
     _cid                 = 0;
     _httpGetHeaderSize   = 0;
 
-    memset(_socketClosedBit,    1, sizeof(_socketClosedBit));
+    for (size_t ix = 0; ix < DIM(_socketClosedBit); ix++) {
+        _socketClosedBit[ix] = true;
+    }
     memset(_socketPendingBytes, 0, sizeof(_socketPendingBytes));
 }
 
@@ -846,7 +853,9 @@ int Sodaq_R4X::socketCreate(uint16_t localPort, Protocols protocol)
         return SOCKET_FAIL;
     }
 
-    _socketClosedBit   [socketID] = true;
+    /* Start with socket closed
+     */
+    _socketClosedBit[socketID] = true;
     _socketPendingBytes[socketID] = 0;
 
     return socketID;
@@ -866,6 +875,9 @@ bool Sodaq_R4X::socketFlush(uint8_t socketID, uint32_t timeout)
         
         char buffer[32];
         if (readResponse(buffer, sizeof(buffer), "+USOCTL: ") != GSMResponseOK) {
+            /* We did not get an OK.
+             * If the socket was closed then assume the flush went fine.
+             */
             if (_socketClosedBit[socketID]) {
                 return true;
             }
@@ -884,7 +896,10 @@ bool Sodaq_R4X::socketFlush(uint8_t socketID, uint32_t timeout)
         
         sodaq_wdt_safe_delay(300);
     }
-    
+
+    /* FIXME In case the socket is closed or the modem did not respond anymore
+     * then assume the flush went fine.
+     */
     if (_socketClosedBit[socketID]) {
         return true;
     }
@@ -2388,8 +2403,9 @@ bool Sodaq_R4X::checkURC(char* buffer)
         return false;
     }
 
-    int param1, param2;
-    char param3[1024];
+    int param1;
+    int param2;
+    char param3[1024];                                  // WARNING! Large allocation on stack
 
     if (sscanf(buffer, "+UFOTAS: %d,%d", &param1, &param2) == 2) {
         #ifdef DEBUG
