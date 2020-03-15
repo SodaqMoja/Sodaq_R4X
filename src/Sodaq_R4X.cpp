@@ -324,11 +324,13 @@ bool Sodaq_R4X::attachGprs(uint32_t timeout)
 
     uint32_t start = millis();
     uint32_t delay_count = 500;
+    bool retval = false;
 
     while (!is_timedout(start, timeout)) {
         if (isAttached()) {
             if (isDefinedIP4() || (execCommand("AT+CGACT=1", CGACT_TIMEOUT) && isDefinedIP4())) {
-                return true;
+                retval = true;
+                break;
             }
         }
 
@@ -340,7 +342,7 @@ bool Sodaq_R4X::attachGprs(uint32_t timeout)
         }
     }
 
-    return false;
+    return retval;
 }
 
 bool Sodaq_R4X::bandMasktoStr(const uint64_t bandMask, char* str, size_t size)
