@@ -2925,7 +2925,7 @@ int Sodaq_R4X::timedRead(uint32_t timeout) const
         if (c >= 0) {
             return c;
         }
-    } while (millis() - _startMillis < timeout);
+    } while (!is_timedout(_startMillis, timeout));
 
     return -1; // -1 indicates timeout
 }
