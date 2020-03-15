@@ -708,7 +708,21 @@ bool Sodaq_R4X::execCommand(const char* command, uint32_t timeout)
     return (readResponse(NULL, 0, NULL, timeout) == GSMResponseOK);
 }
 
+bool Sodaq_R4X::execCommand(const String& command, uint32_t timeout)
+{
+    println(command);
+
+    return (readResponse(NULL, 0, NULL, timeout) == GSMResponseOK);
+}
+
 bool Sodaq_R4X::execCommand(const char* command, char* buffer, size_t size, uint32_t timeout)
+{
+    println(command);
+
+    return (readResponse(buffer, size, NULL, timeout) == GSMResponseOK);
+}
+
+bool Sodaq_R4X::execCommand(const String& command, char* buffer, size_t size, uint32_t timeout)
 {
     println(command);
 

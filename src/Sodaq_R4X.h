@@ -193,7 +193,9 @@ public:
     bool getIMEI(char* buffer, size_t size);
     SimStatuses getSimStatus();
     bool execCommand(const char* command, uint32_t timeout = R4X_DEFAULT_RESPONSE_TIMEOUT);
+    bool execCommand(const String& command, uint32_t timeout = R4X_DEFAULT_RESPONSE_TIMEOUT);
     bool execCommand(const char* command, char* buffer, size_t size, uint32_t timeout = R4X_DEFAULT_RESPONSE_TIMEOUT);
+    bool execCommand(const String& command, char* buffer, size_t size, uint32_t timeout = R4X_DEFAULT_RESPONSE_TIMEOUT);
 
     // Returns true if the modem replies to "AT" commands without timing out.
     bool isAlive();
