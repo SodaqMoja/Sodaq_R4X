@@ -1408,22 +1408,17 @@ bool Sodaq_R4X::mqttLogout()
 
 void Sodaq_R4X::mqttLoop()
 {
-    sodaq_wdt_reset();
-    if (!_modemUART->available()) {
-        return;
+    if (_modemUART->available()) {
+
+        int count = readLn(_inputBuffer, _inputBufferSize, 250); // 250ms, how many bytes at which baudrate?
+
+        if (count > 0) {
+            debugPrint("<< ");
+            debugPrintln(_inputBuffer);
+
+            checkURC(_inputBuffer);
+        }
     }
-
-    int count = readLn(_inputBuffer, _inputBufferSize, 250); // 250ms, how many bytes at which baudrate?
-    sodaq_wdt_reset();
-
-    if (count <= 0) {
-        return;
-    }
-
-    debugPrint("<< ");
-    debugPrintln(_inputBuffer);
-
-    checkURC(_inputBuffer);
 }
 
 bool Sodaq_R4X::mqttPing(const char* server)
