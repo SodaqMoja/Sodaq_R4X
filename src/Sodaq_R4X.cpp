@@ -408,11 +408,13 @@ bool Sodaq_R4X::getOperatorInfo(uint16_t* mcc, uint16_t* mnc)
     char responseBuffer[64];
     memset(responseBuffer, 0, sizeof(responseBuffer));
 
-    uint32_t operatorCode = 0;
+    unsigned long operatorCode = 0;
 
-    if ((readResponse(responseBuffer, sizeof(responseBuffer), "+COPS: ") == GSMResponseOK) && (strlen(responseBuffer) > 0)) {
-
-        if (sscanf(responseBuffer, "%*d,%*d,\"%u\"", &operatorCode) == 1) {
+    if ((readResponse(responseBuffer, sizeof(responseBuffer), "+COPS: ") == GSMResponseOK) &&
+            (strlen(responseBuffer) > 0)) {
+        // Expect something like this: 0,0,"dddddd"
+        // 5 or 6 characters long for numeric format (MCC/MNC codes)
+        if (sscanf(responseBuffer, "%*d,%*d,\"%lu\"", &operatorCode) == 1) {
             uint16_t divider = (operatorCode > 100000) ? 1000 : 100;
 
             *mcc = operatorCode / divider;
@@ -466,8 +468,18 @@ bool Sodaq_R4X::getCellInfo(uint16_t* tac, uint32_t* cid, uint16_t* urat)
     memset(responseBuffer, 0, sizeof(responseBuffer));
 
     if ((readResponse(responseBuffer, sizeof(responseBuffer), "+CEREG: ") == GSMResponseOK) && (strlen(responseBuffer) > 0)) {
-        if (sscanf(responseBuffer, "2,%*d,\"%hx\",\"%x\",%hi", tac, cid, urat) == 3) {
-            switch(*urat) {
+        // Expect something like: 2,5,"EBF5","141E10D",7
+        // <tac> Two bytes tracking area code in hexadecimal format
+        // <ci> Four bytes E-UTRAN cell-id in hexadecimal format
+        // <AcT> 7: E-UTRAN, 8: E-UTRAN EC-GSM-IoT, 9: E-UTRAN Cat NB1
+        short unsigned int num1;
+        unsigned int num2;
+        short int num3;
+        if (sscanf(responseBuffer, "2,%*d,\"%hx\",\"%x\",%hi", &num1, &num2, &num3) == 3) {
+            *tac = num1;
+            *cid = num2;
+            *urat = num3;
+            switch (*urat) {
                 case 7:
                 case 8: *urat = 7; break;
                 case 9: *urat = 8; break;
@@ -488,7 +500,10 @@ bool Sodaq_R4X::getCellInfo(uint16_t* tac, uint32_t* cid, uint16_t* urat)
             memset(responseBuffer, 0, sizeof(responseBuffer));
 
             if ((readResponse(responseBuffer, sizeof(responseBuffer), "+CGREG: ") == GSMResponseOK) && (strlen(responseBuffer) > 0)) {
-                if (sscanf(responseBuffer, "2,%*d,\"%hx\",\"%x\"", tac, cid) == 2) {
+
+                if (sscanf(responseBuffer, "2,%*d,\"%hx\",\"%x\"", &num1, &num2) == 2) {
+                    *tac = num1;
+                    *cid = num2;
                     *urat = 9;
                     return true;
                 }
@@ -2621,7 +2636,7 @@ GSMResponseTypes Sodaq_R4X::readResponse(char* outBuffer, size_t outMaxSize, con
         }
     }
 
-    debugPrintln("<< timed out");
+    debugPrintln("[readResponse] timed out");
 
     return GSMResponseTimeout;
 }
