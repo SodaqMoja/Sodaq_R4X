@@ -208,6 +208,7 @@ public:
     void setNetworkStatusLED(bool on) { _networkStatusLED = on; };
     void setPin(const char* pin);
     bool setRadioActive(bool on);
+    void setPowerSavingMode(bool on) { _psm = on; }
     bool setVerboseErrors(bool on);
 
 
@@ -433,6 +434,9 @@ private:
 
     // Keep track if ATE0 was sent
     bool _echoOff;
+
+    // Power Saving Mode (PSM)
+    bool _psm;
 
     // This is the value of the most recent CSQ
     // Notice that CSQ is somewhat standard. SIM800/SIM900 and Ublox

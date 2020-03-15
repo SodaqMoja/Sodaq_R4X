@@ -113,6 +113,7 @@ Sodaq_R4X::Sodaq_R4X() :
     _diagPrint(0),
     _appendCommand(false),
     _echoOff(false),
+    _psm(true),
     _CSQtime(0),
     _startOn(0)
 {
@@ -227,6 +228,13 @@ bool Sodaq_R4X::connect(const char* apn, const char* uratSelect, uint8_t mnoProf
     }
 
     switchEchoOff();
+
+    if (_psm) {
+        execCommand("AT+CPSMS=1");
+    }
+    else {
+        execCommand("AT+CPSMS=0");
+    }
 
     if (!checkCFUN()) {
         return false;
