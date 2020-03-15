@@ -113,7 +113,6 @@ typedef TriBoolStates tribool_t;
 
 typedef void(*PublishHandlerPtr)(const char* topic, const char* msg);
 
-#define UNUSED(x) (void)(x)
 #define BAND_TO_MASK(x) (1 << (x - 1))
 
 #define SOCKET_COUNT 7
