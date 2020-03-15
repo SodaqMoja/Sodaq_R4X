@@ -264,7 +264,7 @@ public:
 
     bool   socketClose(uint8_t socketID, bool async = false);
     int    socketCloseAll();
-    bool   socketFlush(uint8_t socketID, uint32_t timeout = 10000);
+    bool   socketFlush(uint8_t socketID, uint32_t timeout = 20000);
     bool   socketIsClosed(uint8_t socketID);
     bool   socketWaitForClose(uint8_t socketID, uint32_t timeout);
 
