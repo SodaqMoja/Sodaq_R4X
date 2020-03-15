@@ -33,7 +33,6 @@ POSSIBILITY OF SUCH DAMAGE.
 #define _Sodaq_R4X_h
 
 #define R4X_DEFAULT_RESPONSE_TIMEOUT    5000
-//#define R4X_DEFAULT_ATTACH_TIMEOUT              180000
 #define R4X_DEFAULT_DISCONNECT_TIMEOUT          (40L * 1000)
 #define R4X_DEFAULT_CGACT_TIMEOUT               (150L * 1000)
 #define R4X_DEFAULT_COPS_TIMEOUT                180000
@@ -410,17 +409,13 @@ private:
     bool        _socketClosed[SOCKET_COUNT];
     size_t      _socketPendingBytes[SOCKET_COUNT];
 
-//    uint32_t    _attach_timeout = R4X_DEFAULT_ATTACH_TIMEOUT;
-    uint32_t    _disconnect_timeout;
-    uint32_t    _cgact_timeout;
-    uint32_t    _cops_timeout;
+    PublishHandlerPtr _mqttPublishHandler = NULL;
+
     uint32_t    _socket_close_timeout;
     uint32_t    _socket_connect_timeout;
     uint32_t    _socket_write_timeout;
+
     uint32_t    _umqtt_timeout;
-
-
-    PublishHandlerPtr _mqttPublishHandler = NULL;
 
     /******************************************************************************
      * Generic
@@ -481,6 +476,10 @@ private:
 
     // Keep track when connect started. Use this to record various status changes.
     uint32_t _startOn;
+
+    uint32_t    _disconnect_timeout;
+    uint32_t    _cgact_timeout;
+    uint32_t    _cops_timeout;
 
     // Initializes the input buffer and makes sure it is only initialized once.
     // Safe to call multiple times.
