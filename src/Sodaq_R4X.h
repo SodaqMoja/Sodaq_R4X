@@ -184,6 +184,8 @@ public:
     bool getOperatorInfoString(char* buffer, size_t size);
     bool getCellInfo(uint16_t* tac, uint32_t* cid, uint16_t* urat);
     bool getEpoch(uint32_t* epoch);
+    bool getManufacturer(char* buffer, size_t size);
+    bool getModel(char* buffer, size_t size);
     bool getFirmwareVersion(char* buffer, size_t size);
     bool getFirmwareRevision(char* buffer, size_t size);
     bool getIMEI(char* buffer, size_t size);

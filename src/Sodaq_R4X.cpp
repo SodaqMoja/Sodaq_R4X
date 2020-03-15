@@ -504,6 +504,24 @@ bool Sodaq_R4X::getEpoch(uint32_t* epoch)
     return false;
 }
 
+bool Sodaq_R4X::getManufacturer(char* buffer, size_t size)
+{
+    if (buffer == NULL || size < 30 + 1) {
+        return false;
+    }
+
+    return execCommand("AT+CGMI", DEFAULT_READ_MS, buffer, size);
+}
+
+bool Sodaq_R4X::getModel(char* buffer, size_t size)
+{
+    if (buffer == NULL || size < 30 + 1) {
+        return false;
+    }
+
+    return execCommand("AT+CGMM", DEFAULT_READ_MS, buffer, size);
+}
+
 bool Sodaq_R4X::getFirmwareVersion(char* buffer, size_t size)
 {
     if (buffer == NULL || size < 30 + 1) {
