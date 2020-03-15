@@ -121,6 +121,7 @@ Sodaq_R4X::Sodaq_R4X() :
     _diagPrint(0),
     _appendCommand(false),
     _echoOff(false),
+    _hexMode(false),
     _psm(true),
     _CSQtime(0),
     _startOn(0)
@@ -211,6 +212,7 @@ bool Sodaq_R4X::off()
     }
 
     _echoOff = false;
+    _hexMode = false;
     _mqttLoginResult = -1;
 
     debugPrintln("[R4X off, off]");
@@ -229,6 +231,26 @@ void Sodaq_R4X::switchEchoOff()
             }
         }
     }
+}
+
+/**
+ * Enable HEX mode
+ */
+bool Sodaq_R4X::enableHexMode()
+{
+    if (!_hexMode) {
+        const size_t retry_count = 3;
+        for (size_t ix = 0; ix < retry_count; ix++) {
+            if (execCommand("AT+UDCONF=1,1")) {
+                _hexMode = true;
+                break;
+            }
+        }
+        if (!_hexMode) {
+            debugPrintln("ERROR: Failed to set HEX mode");
+        }
+    }
+    return _hexMode;
 }
 
 bool Sodaq_R4X::connect(const char* apn, const char* urat, uint8_t mnoProfile,
@@ -936,9 +958,9 @@ size_t Sodaq_R4X::socketRead(uint8_t socketID, uint8_t* buffer, size_t size)
         return 0;
     }
 
-    /* Enable HEX mode
-     */
-    execCommand("AT+UDCONF=1,1");
+    if (!enableHexMode()) {
+        return 0;
+    }
 
     /* Determine the size we can handle.
      * This could mean we read less bytes then there are available.
@@ -1046,9 +1068,9 @@ size_t Sodaq_R4X::socketSend(uint8_t socketID, const char* remoteHost, const uin
         return 0;
     }
 
-    /* Enable HEX mode
-     */
-    execCommand("AT+UDCONF=1,1");
+    if (!enableHexMode()) {
+        return 0;
+    }
 
     print("AT+USOST=");
     print(socketID);
@@ -1190,9 +1212,9 @@ bool Sodaq_R4X::socketWaitForReceive(uint8_t socketID, uint32_t timeout)
  */
 size_t Sodaq_R4X::socketWrite(uint8_t socketID, const uint8_t* buffer, size_t size)
 {
-    /* Enable HEX mode
-     */
-    execCommand("AT+UDCONF=1,1");
+    if (!enableHexMode()) {
+        return 0;
+    }
 
     print("AT+USOWR=");
     print(socketID);

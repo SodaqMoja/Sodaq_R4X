@@ -148,6 +148,8 @@ public:
 
     void switchEchoOff();
 
+    bool enableHexMode();
+
     // Turns on and initializes the modem, then connects to the network and activates the data connection.
     bool connect(const char* apn, const char* urat = DEFAULT_URAT,
         const char* bandMask = BAND_MASK_UNCHANGED);
@@ -436,6 +438,9 @@ private:
 
     // Keep track if ATE0 was sent
     bool _echoOff;
+
+    // Keep track if HEX mode was sent
+    bool _hexMode;
 
     // Power Saving Mode (PSM)
     bool _psm;
