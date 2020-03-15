@@ -147,8 +147,8 @@ public:
 
     Sodaq_R4X();
 
-    // Initializes the modem instance. Sets the modem stream and the on-off power pins.
-    void init(Sodaq_OnOffBee* onoff, Stream& stream, uint8_t cid = SODAQ_R4X_DEFAULT_CID);
+    // Initializes the modem instance. Sets the modem UART and the on-off power pins.
+    void init(Sodaq_OnOffBee* onoff, Uart& uart, uint32_t baud, uint8_t cid = SODAQ_R4X_DEFAULT_CID);
 
     // Turns the modem on/off and returns true if successful.
     bool on();
@@ -168,10 +168,6 @@ public:
 
     // Disconnects the modem from the network.
     bool disconnect();
-
-    // Returns the default baud rate of the modem.
-    // To be used when initializing the modem stream for the first time.
-    uint32_t getDefaultBaudrate() { return 115200; };
 
     // Sets the optional "Diagnostics and Debug" print.
     void setDiag(Print &print) { _diagPrint = &print; }
@@ -432,8 +428,11 @@ private:
     // The on-off pin power controller object.
     Sodaq_OnOffBee* _onoff;
 
-    // The stream that communicates with the device.
-    Stream* _modemStream;
+    // The UART that communicates with the device.
+    Uart* _modemUART;
+
+    // The requested baudrate
+    uint32_t _baudRate;
 
     // The (optional) stream to show debug information.
     Print* _diagPrint;
@@ -489,30 +488,30 @@ private:
     // Returns true if the modem is on.
     bool isOn() const;
 
-    // Sets the modem stream.
-    void setModemStream(Stream& stream);
+    // Determine the current baudrate
+    uint32_t determineBaudRate();
 
-    // Returns a character from the modem stream if read within _timeout ms or -1 otherwise.
+    // Returns a character from the modem UART if read within _timeout ms or -1 otherwise.
     int timedRead(uint32_t timeout = 1000) const;
 
-    // Fills the given "buffer" with characters read from the modem stream up to "length"
+    // Fills the given "buffer" with characters read from the modem UART up to "length"
     // maximum characters and until the "terminator" character is found or a character read
     // times out (whichever happens first).
     // The buffer does not contain the "terminator" character or a null terminator explicitly.
     // Returns the number of characters written to the buffer, not including null terminator.
     size_t readBytesUntil(char terminator, char* buffer, size_t length, uint32_t timeout = 1000);
 
-    // Fills the given "buffer" with up to "length" characters read from the modem stream.
+    // Fills the given "buffer" with up to "length" characters read from the modem UART.
     // It stops when a character read times out or "length" characters have been read.
     // Returns the number of characters written to the buffer.
     size_t readBytes(uint8_t* buffer, size_t length, uint32_t timeout = 1000);
 
-    // Reads a line from the modem stream into the "buffer". The line terminator is not
+    // Reads a line from the modem UART into the "buffer". The line terminator is not
     // written into the buffer. The buffer is terminated with null.
     // Returns the number of bytes read, not including the null terminator.
     size_t readLn(char* buffer, size_t size, uint32_t timeout = 1000);
 
-    // Reads a line from the modem stream into the input buffer.
+    // Reads a line from the modem UART into the input buffer.
     // Returns the number of bytes read.
     size_t readLn() { return readLn(_inputBuffer, _inputBufferSize); };
 

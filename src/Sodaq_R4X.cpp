@@ -108,7 +108,8 @@ static uint8_t httpRequestMapping[] = {
 *****************************************************************************/
 
 Sodaq_R4X::Sodaq_R4X() :
-    _modemStream(0),
+    _modemUART(0),
+    _baudRate(0),
     _diagPrint(0),
     _appendCommand(false),
     _echoOff(false),
@@ -150,13 +151,14 @@ Sodaq_R4X::Sodaq_R4X() :
 }
 
 // Initializes the modem instance. Sets the modem stream and the on-off power pins.
-void Sodaq_R4X::init(Sodaq_OnOffBee* onoff, Stream& stream, uint8_t cid)
+void Sodaq_R4X::init(Sodaq_OnOffBee* onoff, Uart& uart, uint32_t baud, uint8_t cid)
 {
     debugPrintln("[init] started.");
 
     initBuffer(); // safe to call multiple times
 
-    setModemStream(stream);
+    _modemUART = &uart;
+    _baudRate = baud;
 
     _onoff = onoff;
     _cid   = cid;
@@ -171,24 +173,43 @@ bool Sodaq_R4X::on()
 
     if (!isOn() && _onoff) {
         _onoff->on();
-    }
 
-    // wait for power up
-    bool timeout = true;
-    for (uint8_t i = 0; i < 10; i++) {
-        if (isAlive()) {
-            timeout = false;
-            break;
+        uint32_t baud = determineBaudRate();
+        if (baud == 0) {
+            debugPrintln("ERROR: No Reply from Modem");
+            return false;
+        }
+
+        // Extra read just to clear the input stream
+        readResponse(NULL, 0, NULL, 250);
+
+        if (_baudRate != baud) {
+            String cmd = String("AT+IPR=") + _baudRate;
+            if (execCommand(cmd)) {
+                _modemUART->begin(_baudRate);
+                /*
+                 * Wait at least 100 ms before issuing a new AT command
+                 */
+                sodaq_wdt_safe_delay(110);
+
+                bool timeout = true;
+                for (uint8_t i = 0; i < 10; i++) {
+                    if (isAlive()) {
+                        timeout = false;
+                        break;
+                    }
+                }
+
+                if (timeout) {
+                    debugPrintln("ERROR: No Reply from modem after baudrate switch");
+                    return false;
+                }
+            }
+            else {
+                return false;
+            }
         }
     }
-
-    if (timeout) {
-        debugPrintln("[R4X] ERROR: No Reply from Modem");
-        return false;
-    }
-
-    // Extra read just to clear the input stream
-    readResponse(NULL, 0, NULL, 250);
 
     return isOn(); // this essentially means isOn() && isAlive()
 }
@@ -216,6 +237,47 @@ bool Sodaq_R4X::off()
 
     debugPrintln("[R4X off, off]");
     return !isOn();
+}
+
+/**
+ * Determine the current baudrate
+ *
+ * The modem is expected to be on. Try from a list of baudrates
+ * until an "OK" is read from the modem.
+ * The R4X supports 9600, 19200, 38400, 57600, 115200 (default and factory-
+ * programmed value), 230400, 460800
+ *
+ */
+uint32_t Sodaq_R4X::determineBaudRate()
+{
+    uint32_t baud_rates[] = {
+            115200,
+            230400,
+            460800,
+            9600,
+            19200,
+            38400,
+            57600,
+    };
+    bool timeout;
+    uint32_t baud;
+
+    for (size_t ix = 0; ix < DIM(baud_rates); ix++) {
+        baud = baud_rates[ix];
+        _modemUART->begin(baud);
+        timeout = true;
+        for (uint8_t i = 0; i < 10; i++) {
+            if (isAlive()) {
+                timeout = false;
+                break;
+            }
+        }
+        if (!timeout) {
+            return baud;
+        }
+    }
+
+    return 0;
 }
 
 void Sodaq_R4X::switchEchoOff()
@@ -1328,7 +1390,7 @@ bool Sodaq_R4X::mqttLogout()
 void Sodaq_R4X::mqttLoop()
 {
     sodaq_wdt_reset();
-    if (!_modemStream->available()) {
+    if (!_modemUART->available()) {
         return;
     }
 
@@ -2871,7 +2933,7 @@ void Sodaq_R4X::writeProlog()
 // Write a byte, as binary data
 size_t Sodaq_R4X::writeByte(uint8_t value)
 {
-    return _modemStream->write(value);
+    return _modemUART->write(value);
 }
 
 size_t Sodaq_R4X::print(const String& buffer)
@@ -2879,7 +2941,7 @@ size_t Sodaq_R4X::print(const String& buffer)
     writeProlog();
     debugPrint(buffer);
 
-    return _modemStream->print(buffer);
+    return _modemUART->print(buffer);
 }
 
 size_t Sodaq_R4X::print(const char buffer[])
@@ -2887,7 +2949,7 @@ size_t Sodaq_R4X::print(const char buffer[])
     writeProlog();
     debugPrint(buffer);
 
-    return _modemStream->print(buffer);
+    return _modemUART->print(buffer);
 }
 
 size_t Sodaq_R4X::print(char value)
@@ -2895,7 +2957,7 @@ size_t Sodaq_R4X::print(char value)
     writeProlog();
     debugPrint(value);
 
-    return _modemStream->print(value);
+    return _modemUART->print(value);
 };
 
 size_t Sodaq_R4X::print(unsigned char value, int base)
@@ -2903,7 +2965,7 @@ size_t Sodaq_R4X::print(unsigned char value, int base)
     writeProlog();
     debugPrint(value, base);
 
-    return _modemStream->print(value, base);
+    return _modemUART->print(value, base);
 };
 
 size_t Sodaq_R4X::print(int value, int base)
@@ -2911,7 +2973,7 @@ size_t Sodaq_R4X::print(int value, int base)
     writeProlog();
     debugPrint(value, base);
 
-    return _modemStream->print(value, base);
+    return _modemUART->print(value, base);
 };
 
 size_t Sodaq_R4X::print(unsigned int value, int base)
@@ -2919,7 +2981,7 @@ size_t Sodaq_R4X::print(unsigned int value, int base)
     writeProlog();
     debugPrint(value, base);
 
-    return _modemStream->print(value, base);
+    return _modemUART->print(value, base);
 };
 
 size_t Sodaq_R4X::print(long value, int base)
@@ -2927,7 +2989,7 @@ size_t Sodaq_R4X::print(long value, int base)
     writeProlog();
     debugPrint(value, base);
 
-    return _modemStream->print(value, base);
+    return _modemUART->print(value, base);
 };
 
 size_t Sodaq_R4X::print(unsigned long value, int base)
@@ -2935,7 +2997,7 @@ size_t Sodaq_R4X::print(unsigned long value, int base)
     writeProlog();
     debugPrint(value, base);
 
-    return _modemStream->print(value, base);
+    return _modemUART->print(value, base);
 };
 
 size_t Sodaq_R4X::println(const __FlashStringHelper *ifsh)
@@ -2988,7 +3050,7 @@ size_t Sodaq_R4X::println(double num, int digits)
     writeProlog();
     debugPrint(num, digits);
 
-    return _modemStream->println(num, digits);
+    return _modemUART->println(num, digits);
 }
 
 size_t Sodaq_R4X::println(const Printable& x)
@@ -3017,19 +3079,13 @@ void Sodaq_R4X::initBuffer()
     }
 }
 
-// Sets the modem stream.
-void Sodaq_R4X::setModemStream(Stream& stream)
-{
-    _modemStream = &stream;
-}
-
 // Returns a character from the modem stream if read within _timeout ms or -1 otherwise.
 int Sodaq_R4X::timedRead(uint32_t timeout) const
 {
     uint32_t _startMillis = millis();
 
     do {
-        int c = _modemStream->read();
+        int c = _modemUART->read();
 
         if (c >= 0) {
             return c;
