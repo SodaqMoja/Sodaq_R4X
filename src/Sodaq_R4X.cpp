@@ -54,6 +54,9 @@ POSSIBILITY OF SUCH DAMAGE.
 #define SODAQ_GSM_MODEM_DEFAULT_INPUT_BUFFER_SIZE 1024
 #define SODAQ_GSM_TERMINATOR_LEN (sizeof(SODAQ_GSM_TERMINATOR) - 1)
 
+/**
+ * SARA R4X GPIO pin for network status indicator
+ */
 #define NETWORK_STATUS_GPIO_ID     16
 
 #define DEBUG_STR_ERROR            "[ERROR]: "
@@ -126,7 +129,7 @@ Sodaq_R4X::Sodaq_R4X() :
     _mqttLoginResult     = -1;
     _mqttPendingMessages = -1;
     _mqttSubscribeReason = -1;
-    _networkStatusLED = 0;
+    _networkStatusLED    = 0;
     _pin                 = 0;
 
     memset(_socketClosedBit,    1, sizeof(_socketClosedBit));
@@ -149,6 +152,8 @@ void Sodaq_R4X::init(Sodaq_OnOffBee* onoff, Stream& stream, uint8_t cid)
 // Turns the modem on and returns true if successful.
 bool Sodaq_R4X::on()
 {
+    debugPrintln("[R4X on]");
+
     _startOn = millis();
 
     if (!isOn() && _onoff) {
@@ -178,6 +183,8 @@ bool Sodaq_R4X::on()
 // Turns the modem off and returns true if successful.
 bool Sodaq_R4X::off()
 {
+    debugPrintln("[R4X off]");
+
     // Safety command to shutdown, response is ignored
     if (isOn()) {
         println("AT+CPWROFF");
@@ -193,6 +200,7 @@ bool Sodaq_R4X::off()
     _echoOff = false;
     _mqttLoginResult = -1;
 
+    debugPrintln("[R4X off, off]");
     return !isOn();
 }
 
@@ -210,9 +218,11 @@ void Sodaq_R4X::switchEchoOff()
     }
 }
 
-bool Sodaq_R4X::connect(const char* apn, const char* uratSelect, uint8_t mnoProfile,
+bool Sodaq_R4X::connect(const char* apn, const char* urat, uint8_t mnoProfile,
     const char* operatorSelect, const char* bandMaskLTE, const char* bandMaskNB)
 {
+    debugPrintln("[R4X connect]");
+
     if (!on()) {
         return false;
     }
@@ -244,7 +254,10 @@ bool Sodaq_R4X::connect(const char* apn, const char* uratSelect, uint8_t mnoProf
         return false;
     }
 
-    if (!checkUrat(uratSelect != 0 ? uratSelect : DEFAULT_URAT)) {
+    if (urat == 0) {
+        urat = DEFAULT_URAT;
+    }
+    if (!checkUrat(urat)) {
         return false;
     }
 
@@ -252,7 +265,7 @@ bool Sodaq_R4X::connect(const char* apn, const char* uratSelect, uint8_t mnoProf
         return false;
     }
 
-    if (!checkCOPS(operatorSelect != 0 ? operatorSelect : AUTOMATIC_OPERATOR, uratSelect != 0 ? uratSelect : DEFAULT_URAT)) {
+    if (!checkCOPS(operatorSelect != 0 ? operatorSelect : AUTOMATIC_OPERATOR, urat)) {
         return false;
     }
 
@@ -304,6 +317,8 @@ bool Sodaq_R4X::disconnect()
 
 bool Sodaq_R4X::attachGprs(uint32_t timeout)
 {
+    debugPrintln("[R4X attachGprs]");
+
     uint32_t start = millis();
     uint32_t delay_count = 500;
 
@@ -601,6 +616,7 @@ bool Sodaq_R4X::isAttached()
 // Returns true if the modem is connected to the network and IP address is not 0.0.0.0.
 bool Sodaq_R4X::isConnected()
 {
+    debugPrintln("[R4X isConnected]");
     return isAttached() && waitForSignalQuality(ISCONNECTED_CSQ_TIMEOUT) && isDefinedIP4();
 }
 
@@ -678,7 +694,6 @@ bool Sodaq_R4X::setVerboseErrors(bool on)
     return (readResponse() == GSMResponseOK);
 }
 
-
 /******************************************************************************
 * RSSI and CSQ
 *****************************************************************************/
@@ -705,6 +720,7 @@ uint8_t Sodaq_R4X::convertRSSI2CSQ(int8_t rssi) const
 // Returns true if successful.
 bool Sodaq_R4X::getRSSIAndBER(int8_t* rssi, uint8_t* ber)
 {
+    debugPrintln("[R4X getRSSIAndBER]");
     static char berValues[] = { 49, 43, 37, 25, 19, 13, 7, 0 }; // 3GPP TS 45.008 [20] subclause 8.2.4
 
     println("AT+CSQ");
@@ -2187,6 +2203,8 @@ bool Sodaq_R4X::checkBandMasks(const char* bandMaskLTE, const char* bandMaskNB)
         }
     }
 
+    /* This saves the current settings to the NVM, then it reboots the module
+     */
     reboot();
 
     return true;
@@ -2213,7 +2231,6 @@ bool Sodaq_R4X::checkCOPS(const char* requiredOperator, const char* requiredURAT
     }
 
     println("AT+COPS=3,2");
-
     if (readResponse() != GSMResponseOK) {
         return false;
     }
@@ -2264,6 +2281,8 @@ bool Sodaq_R4X::checkProfile(const uint8_t requiredProfile)
         return false;
     }
 
+    /* This saves the current settings to the NVM, then it reboots the module
+     */
     reboot();
 
     return true;
@@ -2296,6 +2315,8 @@ bool Sodaq_R4X::checkUrat(const char* requiredURAT)
         return false;
     }
 
+    /* This saves the current settings to the NVM, then it reboots the module
+     */
     reboot();
 
     return true;
@@ -2640,6 +2661,7 @@ bool Sodaq_R4X::setSimPin(const char* simPin)
 
 bool Sodaq_R4X::waitForSignalQuality(uint32_t timeout)
 {
+    debugPrintln("[R4X waitForSignalQuality]");
     uint32_t start = millis();
     const int8_t minRSSI = getMinRSSI();
     int8_t rssi;
@@ -2967,42 +2989,59 @@ size_t Sodaq_R4X::readLn(char* buffer, size_t size, uint32_t timeout)
 
 Sodaq_SARA_R4XX_OnOff::Sodaq_SARA_R4XX_OnOff()
 {
-    #ifdef PIN_SARA_ENABLE
+#ifdef PIN_SARA_ENABLE
     // First write the output value, and only then set the output mode.
     digitalWrite(SARA_ENABLE, LOW);
     pinMode(SARA_ENABLE, OUTPUT);
 
     digitalWrite(SARA_TX_ENABLE, LOW);
     pinMode(SARA_TX_ENABLE, OUTPUT);
-    #endif
+#endif
 
     _onoff_status = false;
 }
 
 void Sodaq_SARA_R4XX_OnOff::on()
 {
-    #ifdef PIN_SARA_ENABLE
+#ifdef PIN_SARA_ENABLE
     digitalWrite(SARA_ENABLE, HIGH);
     digitalWrite(SARA_TX_ENABLE, HIGH);
 
+    /*
+     * This is the PWR_ON pin of the R4X
+     * See SARA-R4 series-Data sheet
+     *  - turn low (between 0.15s and 3.2s) to trigger module switch on from power off mode
+     *  - turn low (between 0.15s and 3.2s) to trigger module wake-up from PSM deep sleep
+     *  - turn low (at least 1.5s) to trigger module switch off
+     * Since we put on the power (SARA_ENABLE controls power supply), we
+     * know it must be in power off mode.
+     */
     pinMode(SARA_R4XX_TOGGLE, OUTPUT);
     digitalWrite(SARA_R4XX_TOGGLE, LOW);
-    // We should be able to reduce this to 50ms or something
+    // TODO Can we reduce this to something like 200ms?
     sodaq_wdt_safe_delay(2000);
+
+    /*
+     * Make the pin INPUT and thus it will go HIGH due to the pull-up
+     * in the R4X.
+     */
     pinMode(SARA_R4XX_TOGGLE, INPUT);
 
     _onoff_status = true;
-    #endif
+#endif
 }
 
 void Sodaq_SARA_R4XX_OnOff::off()
 {
-    #ifdef PIN_SARA_ENABLE
+#ifdef PIN_SARA_ENABLE
+    /*
+     * Completely switch off power of the R4X.
+     */
     digitalWrite(SARA_ENABLE, LOW);
     digitalWrite(SARA_TX_ENABLE, LOW);
 
     _onoff_status = false;
-    #endif
+#endif
 }
 
 bool Sodaq_SARA_R4XX_OnOff::isOn()

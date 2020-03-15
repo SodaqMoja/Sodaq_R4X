@@ -149,10 +149,10 @@ public:
     void switchEchoOff();
 
     // Turns on and initializes the modem, then connects to the network and activates the data connection.
-    bool connect(const char* apn, const char* urat = DEFAULT_URAT, 
+    bool connect(const char* apn, const char* urat = DEFAULT_URAT,
         const char* bandMask = BAND_MASK_UNCHANGED);
 
-    bool connect(const char* apn, const char* uratSelect, uint8_t mnoProfile, 
+    bool connect(const char* apn, const char* urat, uint8_t mnoProfile,
         const char* operatorSelect = AUTOMATIC_OPERATOR, const char* bandMaskLTE = BAND_MASK_UNCHANGED, 
         const char* bandMaskNB = BAND_MASK_UNCHANGED);
 
