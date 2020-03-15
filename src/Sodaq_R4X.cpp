@@ -1194,7 +1194,10 @@ size_t Sodaq_R4X::socketWrite(uint8_t socketID, const uint8_t* buffer, size_t si
         print(static_cast<char>(NIBBLE_TO_HEX_CHAR(HIGH_NIBBLE(buffer[i]))));
         print(static_cast<char>(NIBBLE_TO_HEX_CHAR(LOW_NIBBLE(buffer[i]))));
     }
-    debugPrintln();                     // to close the diag line for the previous nibbles
+    /* Indicate that we need a new diag prolog (">>") next time we send a command
+     */
+    _appendCommand = false;
+    debugPrintln();                     // ???? to close the diag line for the previous nibbles
 
     char outBuffer[64];
     if (readResponse(outBuffer, sizeof(outBuffer), "+USOWR: ", SOCKET_WRITE_TIMEOUT) != GSMResponseOK) {
