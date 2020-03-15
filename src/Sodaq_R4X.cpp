@@ -754,12 +754,17 @@ bool Sodaq_R4X::isAttached()
     return (strcmp(buffer, "1") == 0);
 }
 
-// Returns true if the modem is connected to the network and IP address is not 0.0.0.0.
+/**
+ * Is the modem still connected?
+ *
+ * Return true if the modem is connected to the network and IP address is not 0.0.0.0.
+ */
 bool Sodaq_R4X::isConnected()
 {
     debugPrintln("[R4X isConnected]");
     /* TODO
      * There are three calls, each could timeout.
+     * Why do we want to wait for CSQ here?
      */
     return isAttached() && waitForSignalQuality(10000) && isDefinedIP4();
 }
