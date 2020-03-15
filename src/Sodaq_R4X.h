@@ -146,6 +146,8 @@ public:
     bool on();
     bool off();
 
+    void switchEchoOff();
+
     // Turns on and initializes the modem, then connects to the network and activates the data connection.
     bool connect(const char* apn, const char* urat = DEFAULT_URAT, 
         const char* bandMask = BAND_MASK_UNCHANGED);
@@ -428,6 +430,9 @@ private:
     // This flag keeps track if the next write is the continuation of the current command
     // A Carriage Return will reset this flag.
     bool _appendCommand;
+
+    // Keep track if ATE0 was sent
+    bool _echoOff;
 
     // This is the value of the most recent CSQ
     // Notice that CSQ is somewhat standard. SIM800/SIM900 and Ublox

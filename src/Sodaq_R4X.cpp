@@ -112,6 +112,7 @@ Sodaq_R4X::Sodaq_R4X() :
     _modemStream(0),
     _diagPrint(0),
     _appendCommand(false),
+    _echoOff(false),
     _CSQtime(0),
     _startOn(0)
 {
@@ -188,9 +189,24 @@ bool Sodaq_R4X::off()
         _onoff->off();
     }
 
+    _echoOff = false;
     _mqttLoginResult = -1;
 
     return !isOn();
+}
+
+void Sodaq_R4X::switchEchoOff()
+{
+    if (!_echoOff) {
+        // Suppress echoing
+        const size_t retry_count = 3;
+        for (size_t ix = 0; ix < retry_count; ix++) {
+            if (execCommand("ATE0")) {
+                _echoOff = true;
+                break;
+            }
+        }
+    }
 }
 
 bool Sodaq_R4X::connect(const char* apn, const char* uratSelect, uint8_t mnoProfile,
@@ -210,9 +226,7 @@ bool Sodaq_R4X::connect(const char* apn, const char* uratSelect, uint8_t mnoProf
         return false;
     }
 
-    if (!execCommand("ATE0")) {
-        return false;
-    }
+    switchEchoOff();
 
     if (!checkCFUN()) {
         return false;
@@ -2566,6 +2580,7 @@ GSMResponseTypes Sodaq_R4X::readResponse(char* outBuffer, size_t outMaxSize, con
 void Sodaq_R4X::reboot()
 {
     println("AT+CFUN=15");
+    _echoOff = false;
 
     // wait up to 2000ms for the modem to come up
     uint32_t start = millis();
@@ -2575,14 +2590,14 @@ void Sodaq_R4X::reboot()
     // wait for the reboot to start
     sodaq_wdt_safe_delay(REBOOT_DELAY);
 
+    // echo off again after reboot
+    switchEchoOff();
+
     while (!is_timedout(start, REBOOT_TIMEOUT)) {
         if (getSimStatus() == SimReady) {
             break;
         }
     }
-
-    // echo off again after reboot
-    execCommand("ATE0");
 
     // extra read just to clear the input stream
     readResponse(NULL, 0, NULL, 250);
