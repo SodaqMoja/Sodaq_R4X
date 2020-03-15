@@ -781,7 +781,7 @@ bool Sodaq_R4X::socketClose(uint8_t socketID, bool async)
         println();
     }
 
-    _socketClosedBit   [socketID] = true;
+    _socketClosedBit[socketID] = true;
     _socketPendingBytes[socketID] = 0;
 
     if (readResponse(NULL, 0, NULL, SOCKET_CLOSE_TIMEOUT) != GSMResponseOK) {
@@ -816,7 +816,7 @@ bool Sodaq_R4X::socketConnect(uint8_t socketID, const char* remoteHost, const ui
 
     bool b = readResponse(NULL, 0, NULL, SOCKET_CONNECT_TIMEOUT) == GSMResponseOK;
 
-    _socketClosedBit  [socketID] = !b;
+    _socketClosedBit[socketID] = !b;
 
     return b;
 }
@@ -852,6 +852,9 @@ int Sodaq_R4X::socketCreate(uint16_t localPort, Protocols protocol)
     return socketID;
 }
 
+/**
+ * Flush the bytes in the send buffer of a (TCP, UDP) socket
+ */
 bool Sodaq_R4X::socketFlush(uint8_t socketID, uint32_t timeout)
 {
     uint32_t start = millis();
@@ -862,7 +865,6 @@ bool Sodaq_R4X::socketFlush(uint8_t socketID, uint32_t timeout)
         println(",11");
         
         char buffer[32];
-
         if (readResponse(buffer, sizeof(buffer), "+USOCTL: ") != GSMResponseOK) {
             if (_socketClosedBit[socketID]) {
                 return true;
@@ -905,6 +907,9 @@ bool Sodaq_R4X::socketIsClosed(uint8_t socketID)
     return _socketClosedBit[socketID];
 }
 
+/*
+ * Read a buffer from a TCP socket
+ */
 size_t Sodaq_R4X::socketRead(uint8_t socketID, uint8_t* buffer, size_t size)
 {
     if (!socketHasPendingBytes(socketID)) {
@@ -913,11 +918,17 @@ size_t Sodaq_R4X::socketRead(uint8_t socketID, uint8_t* buffer, size_t size)
         return 0;
     }
 
+    /* Enable HEX mode
+     */
     execCommand("AT+UDCONF=1,1");
 
+    /* Determine the size we can handle.
+     * This could mean we read less bytes then there are available.
+     * TODO We can only handle SODAQ_R4X_MAX_SOCKET_BUFFER / 2 (2 chars per byte).
+     */
     size = min(size, min(SODAQ_R4X_MAX_SOCKET_BUFFER, _socketPendingBytes[socketID]));
 
-    char   outBuffer[SODAQ_R4X_MAX_SOCKET_BUFFER];
+    char   outBuffer[SODAQ_R4X_MAX_SOCKET_BUFFER];      // WARNING! Large allocation on stack
     int    retSocketID;
     size_t retSize;
 
@@ -934,6 +945,8 @@ size_t Sodaq_R4X::socketRead(uint8_t socketID, uint8_t* buffer, size_t size)
         return 0;
     }
 
+    /* TODO Maybe it is better to check socketID == retSocketID
+     */
     if ((retSocketID < 0) || (retSocketID >= SOCKET_COUNT)) {
         return 0;
     }
@@ -949,6 +962,9 @@ size_t Sodaq_R4X::socketRead(uint8_t socketID, uint8_t* buffer, size_t size)
     return retSize;
 }
 
+/**
+ * Read a buffer from a UDP socket
+ */
 size_t Sodaq_R4X::socketReceive(uint8_t socketID, uint8_t* buffer, size_t size)
 {
     if (!socketHasPendingBytes(socketID)) {
@@ -957,11 +973,17 @@ size_t Sodaq_R4X::socketReceive(uint8_t socketID, uint8_t* buffer, size_t size)
         return 0;
     }
 
+    /* Enable HEX mode
+     */
     execCommand("AT+UDCONF=1,1");
 
+    /* Determine the size we can handle.
+     * This could mean we read less bytes then there are available.
+     * TODO We can only handle SODAQ_R4X_MAX_SOCKET_BUFFER / 2 (2 chars per byte).
+     */
     size = min(size, min(SODAQ_R4X_MAX_SOCKET_BUFFER, _socketPendingBytes[socketID]));
 
-    char   outBuffer[SODAQ_R4X_MAX_SOCKET_BUFFER];
+    char   outBuffer[SODAQ_R4X_MAX_SOCKET_BUFFER];      // WARNING! Large allocation on stack
     int    retSocketID;
     size_t retSize;
 
@@ -978,6 +1000,8 @@ size_t Sodaq_R4X::socketReceive(uint8_t socketID, uint8_t* buffer, size_t size)
         return 0;
     }
 
+    /* TODO Maybe it is better to check socketID == retSocketID
+     */
     if ((retSocketID < 0) || (retSocketID >= SOCKET_COUNT)) {
         return 0;
     }
@@ -993,6 +1017,9 @@ size_t Sodaq_R4X::socketReceive(uint8_t socketID, uint8_t* buffer, size_t size)
     return retSize;
 }
 
+/**
+ * Write a buffer to a UDP socket
+ */
 size_t Sodaq_R4X::socketSend(uint8_t socketID, const char* remoteHost, const uint16_t remotePort,
                              const uint8_t* buffer, size_t size)
 {
@@ -1001,6 +1028,8 @@ size_t Sodaq_R4X::socketSend(uint8_t socketID, const char* remoteHost, const uin
         return 0;
     }
 
+    /* Enable HEX mode
+     */
     execCommand("AT+UDCONF=1,1");
 
     print("AT+USOST=");
@@ -1021,14 +1050,12 @@ size_t Sodaq_R4X::socketSend(uint8_t socketID, const char* remoteHost, const uin
     println('"');
 
     char outBuffer[64];
-
     if (readResponse(outBuffer, sizeof(outBuffer), "+USOST: ", SOCKET_WRITE_TIMEOUT) != GSMResponseOK) {
         return 0;
     }
 
     int retSocketID;
     int sentLength;
-
     if ((sscanf(outBuffer, "%d,%d", &retSocketID, &sentLength) != 2) || (retSocketID < 0) || (retSocketID > SOCKET_COUNT)) {
         return 0;
     }
@@ -1074,12 +1101,17 @@ bool Sodaq_R4X::socketWaitForClose(uint8_t socketID, uint32_t timeout)
     return socketIsClosed(socketID);
 }
 
+/**
+ * Are there pending bytes on the TCP socket?
+ */
 bool Sodaq_R4X::socketWaitForRead(uint8_t socketID, uint32_t timeout)
 {
     if (socketHasPendingBytes(socketID)) {
         return true;
     }
 
+    /* Query the modem again if there are pending bytes.
+     */
     uint32_t startTime = millis();
 
     while (!socketHasPendingBytes(socketID) && !socketIsClosed(socketID) && !is_timedout(startTime, timeout)) {
@@ -1088,11 +1120,9 @@ bool Sodaq_R4X::socketWaitForRead(uint8_t socketID, uint32_t timeout)
         println(",0");
 
         char buffer[128];
-
         if (readResponse(buffer, sizeof(buffer), "+USORD: ") == GSMResponseOK) {
             int retSocketID;
             int receiveSize;
-
             if (sscanf(buffer, "%d,%d", &retSocketID, &receiveSize) == 2) {
                 _socketPendingBytes[retSocketID] = receiveSize;
             }
@@ -1104,12 +1134,17 @@ bool Sodaq_R4X::socketWaitForRead(uint8_t socketID, uint32_t timeout)
     return socketHasPendingBytes(socketID);
 }
 
+/**
+ * Are there pending bytes on the UDP socket?
+ */
 bool Sodaq_R4X::socketWaitForReceive(uint8_t socketID, uint32_t timeout)
 {
     if (socketHasPendingBytes(socketID)) {
         return true;
     }
 
+    /* Query the modem again if there are pending bytes.
+     */
     uint32_t startTime = millis();
 
     while (!socketHasPendingBytes(socketID) && !is_timedout(startTime, timeout)) {
@@ -1118,11 +1153,9 @@ bool Sodaq_R4X::socketWaitForReceive(uint8_t socketID, uint32_t timeout)
         println(",0");
 
         char buffer[128];
-
         if (readResponse(buffer, sizeof(buffer), "+USORF: ") == GSMResponseOK) {
             int retSocketID;
             int receiveSize;
-
             if (sscanf(buffer, "%d,%d", &retSocketID, &receiveSize) == 2) {
                 _socketPendingBytes[retSocketID] = receiveSize;
             }
@@ -1134,8 +1167,13 @@ bool Sodaq_R4X::socketWaitForReceive(uint8_t socketID, uint32_t timeout)
     return socketHasPendingBytes(socketID);
 }
 
+/**
+ * Write a buffer to a TCP socket
+ */
 size_t Sodaq_R4X::socketWrite(uint8_t socketID, const uint8_t* buffer, size_t size)
 {
+    /* Enable HEX mode
+     */
     execCommand("AT+UDCONF=1,1");
 
     print("AT+USOWR=");
@@ -1143,6 +1181,8 @@ size_t Sodaq_R4X::socketWrite(uint8_t socketID, const uint8_t* buffer, size_t si
     print(",");
     println(size);
 
+    /* Wait for the prompt
+     */
     if (readResponse() != GSMResponsePrompt) {
         return 0;
     }
@@ -1154,19 +1194,18 @@ size_t Sodaq_R4X::socketWrite(uint8_t socketID, const uint8_t* buffer, size_t si
         print(static_cast<char>(NIBBLE_TO_HEX_CHAR(HIGH_NIBBLE(buffer[i]))));
         print(static_cast<char>(NIBBLE_TO_HEX_CHAR(LOW_NIBBLE(buffer[i]))));
     }
-
-    debugPrintln();
+    debugPrintln();                     // to close the diag line for the previous nibbles
 
     char outBuffer[64];
-
     if (readResponse(outBuffer, sizeof(outBuffer), "+USOWR: ", SOCKET_WRITE_TIMEOUT) != GSMResponseOK) {
         return 0;
     }
 
     int retSocketID;
     int sentLength;
-
-    if ((sscanf(outBuffer, "%d,%d", &retSocketID, &sentLength) != 2) || (retSocketID < 0) || (retSocketID > SOCKET_COUNT)) {
+    if ((sscanf(outBuffer, "%d,%d", &retSocketID, &sentLength) != 2) ||
+        (retSocketID < 0) ||
+        (retSocketID > SOCKET_COUNT)) {
         return 0;
     }
 
@@ -2565,7 +2604,7 @@ bool Sodaq_R4X::isValidIPv4(const char* str)
  * 3. check error
  * 4. if response prefix is not empty, check response prefix, append if multiline
  * 5. check URC, if handled => continue
- * 6. if response prefis is empty, return the whole line return line buffer, append if multiline
+ * 6. if response prefix is empty, return the whole line return line buffer, append if multiline
 */
 GSMResponseTypes Sodaq_R4X::readResponse(char* outBuffer, size_t outMaxSize, const char* prefix, uint32_t timeout)
 {
@@ -2616,6 +2655,9 @@ GSMResponseTypes Sodaq_R4X::readResponse(char* outBuffer, size_t outMaxSize, con
         }
 
         if (hasPrefix || (!usePrefix && useOutBuffer)) {
+            /* Notice that the minus one is to guarantee that there is space to
+             * add a NUL byte at the end.
+             */
             if (outSize > 0 && outSize < outMaxSize - 1) {
                 outBuffer[outSize++] = LF;
             }
