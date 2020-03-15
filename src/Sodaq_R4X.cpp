@@ -97,7 +97,6 @@ POSSIBILITY OF SUCH DAMAGE.
 #define CR '\r'
 #define LF '\n'
 
-#define SOCKET_FAIL -1
 #define NOW (uint32_t)millis()
 
 static inline bool is_timedout(uint32_t from, uint32_t nr_ms) __attribute__((always_inline));
@@ -856,6 +855,12 @@ bool Sodaq_R4X::socketConnect(uint8_t socketID, const char* remoteHost, const ui
     return b;
 }
 
+/**
+ * Create a new socket
+ *
+ * @returns 0..(SOCKET_COUNT-1) for a successful creation
+ * @returns -1 if creation failed
+ */
 int Sodaq_R4X::socketCreate(uint16_t localPort, Protocols protocol)
 {
     print("AT+USOCR=");
@@ -872,13 +877,13 @@ int Sodaq_R4X::socketCreate(uint16_t localPort, Protocols protocol)
     char buffer[32];
 
     if (readResponse(buffer, sizeof(buffer), "+USOCR: ") != GSMResponseOK) {
-        return SOCKET_FAIL;
+        return -1;
     }
 
     int socketID;
 
     if ((sscanf(buffer, "%d", &socketID) != 1) || (socketID < 0) || (socketID > SOCKET_COUNT)) {
-        return SOCKET_FAIL;
+        return -1;
     }
 
     /* Start with socket closed
