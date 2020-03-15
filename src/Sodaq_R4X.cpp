@@ -398,9 +398,8 @@ bool Sodaq_R4X::getIMSI(char* buffer, size_t size)
 
 bool Sodaq_R4X::getOperatorInfo(uint16_t* mcc, uint16_t* mnc)
 {
-    println("AT+COPS=3,2");
-
-    if (readResponse() != GSMResponseOK) {
+    // Set mode to numeric format
+    if (!execCommand("AT+COPS=3,2")) {
         return false;
     }
 
@@ -434,9 +433,8 @@ bool Sodaq_R4X::getOperatorInfoString(char* buffer, size_t size)
 
     buffer[0] = 0;
 
-    println("AT+COPS=3,0");
-
-    if (readResponse() != GSMResponseOK) {
+    // Set mode to long alphanumeric format
+    if (!execCommand("AT+COPS=3,0")) {
         return false;
     }
 
@@ -457,9 +455,8 @@ bool Sodaq_R4X::getOperatorInfoString(char* buffer, size_t size)
 
 bool Sodaq_R4X::getCellInfo(uint16_t* tac, uint32_t* cid, uint16_t* urat)
 {
-    println("AT+CEREG=2");
-
-    if (readResponse() != GSMResponseOK) {
+    // 2: network registration and location information URC +CEREG: <stat>[,[<tac>],[<ci>],[<AcT>]] enabled
+    if (!execCommand("AT+CEREG=2")) {
         return false;
     }
 
@@ -2631,16 +2628,19 @@ GSMResponseTypes Sodaq_R4X::readResponse(char* outBuffer, size_t outMaxSize, con
 
 void Sodaq_R4X::reboot()
 {
-    println("AT+CFUN=15");
+    debugPrintln("[reboot]");
+
+    execCommand("AT+CFUN=15");
     _echoOff = false;
-
-    // wait up to 2000ms for the modem to come up
-    uint32_t start = millis();
-
-    while ((readResponse() != GSMResponseOK) && !is_timedout(start, 2000)) {}
 
     // wait for the reboot to start
     sodaq_wdt_safe_delay(REBOOT_DELAY);
+
+    // wait a while for the modem to come up
+    uint32_t start = millis();
+    while (!isAlive() && !is_timedout(start, 3000)) {
+        sodaq_wdt_safe_delay(100);
+    }
 
     // echo off again after reboot
     switchEchoOff();
@@ -2649,10 +2649,8 @@ void Sodaq_R4X::reboot()
         if (getSimStatus() == SimReady) {
             break;
         }
+        sodaq_wdt_safe_delay(100);
     }
-
-    // extra read just to clear the input stream
-    readResponse(NULL, 0, NULL, 250);
 }
 
 bool Sodaq_R4X::setSimPin(const char* simPin)
