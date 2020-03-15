@@ -32,7 +32,15 @@ POSSIBILITY OF SUCH DAMAGE.
 #ifndef _Sodaq_R4X_h
 #define _Sodaq_R4X_h
 
-#define DEFAULT_READ_MS                 5000
+#define R4X_DEFAULT_RESPONSE_TIMEOUT    5000
+//#define R4X_DEFAULT_ATTACH_TIMEOUT              180000
+#define R4X_DEFAULT_DISCONNECT_TIMEOUT          (40L * 1000)
+#define R4X_DEFAULT_CGACT_TIMEOUT               (150L * 1000)
+#define R4X_DEFAULT_COPS_TIMEOUT                180000
+#define R4X_DEFAULT_SOCKET_CLOSE_TIMEOUT        120000
+#define R4X_DEFAULT_SOCKET_CONNECT_TIMEOUT      120000
+#define R4X_DEFAULT_SOCKET_WRITE_TIMEOUT        120000
+#define R4X_DEFAULT_UMQTT_TIMEOUT               60000
 #define SODAQ_MAX_SEND_MESSAGE_SIZE     512
 #define SODAQ_R4X_DEFAULT_CID           1
 #define SODAQ_R4X_DEFAULT_READ_TIMOUT   15000
@@ -173,12 +181,8 @@ public:
     // Needs to be called before init().
     void setInputBufferSize(size_t value) { _inputBufferSize = value; };
 
-
-    /******************************************************************************
-    * Public
-    *****************************************************************************/
-
-    bool attachGprs(uint32_t timeout = 10L * 60L * 1000);
+#define R4X_DEFAULT_ATTACH_TIMEOUT      (10L * 60L * 1000)
+    bool attachGprs(uint32_t timeout = R4X_DEFAULT_ATTACH_TIMEOUT);
     bool bandMasktoStr(const uint64_t bandMask, char* str, size_t size);
     bool getCCID(char* buffer, size_t size);
     bool getIMSI(char* buffer, size_t size);
@@ -192,7 +196,8 @@ public:
     bool getFirmwareRevision(char* buffer, size_t size);
     bool getIMEI(char* buffer, size_t size);
     SimStatuses getSimStatus();
-    bool execCommand(const char* command, uint32_t timeout = DEFAULT_READ_MS, char* buffer = NULL, size_t size = 0);
+    bool execCommand(const char* command, uint32_t timeout = R4X_DEFAULT_RESPONSE_TIMEOUT);
+    bool execCommand(const char* command, char* buffer, size_t size, uint32_t timeout = R4X_DEFAULT_RESPONSE_TIMEOUT);
 
     // Returns true if the modem replies to "AT" commands without timing out.
     bool isAlive();
@@ -266,6 +271,7 @@ public:
     size_t socketGetPendingBytes(uint8_t socketID);
     bool   socketHasPendingBytes(uint8_t socketID);
 
+    void   setSocketWriteTimeout(uint32_t t) { _socket_write_timeout = t; }
 
     /******************************************************************************
     * MQTT
@@ -365,23 +371,6 @@ public:
 
 
 private:
-    /******************************************************************************
-    * Private
-    *****************************************************************************/
-
-    uint8_t   _cid;
-    uint32_t  _httpGetHeaderSize;
-    tribool_t _httpRequestSuccessBit[HttpRequestTypesMAX];
-    int8_t    _mqttLoginResult;
-    int16_t   _mqttPendingMessages;
-    int8_t    _mqttSubscribeReason;
-    bool      _networkStatusLED;
-    char*     _pin;
-    bool      _socketClosed[SOCKET_COUNT];
-    size_t    _socketPendingBytes[SOCKET_COUNT];
-
-    PublishHandlerPtr _mqttPublishHandler = NULL;
-
     int8_t checkApn(const char* requiredAPN); // -1: error, 0: ip not valid => need attach, 1: valid ip
     bool   checkBandMasks(const char* bandMaskLTE, const char* bandMaskNB);
     bool   checkCFUN();
@@ -394,11 +383,12 @@ private:
     bool   isValidIPv4(const char* str);
 
     GSMResponseTypes readResponse(char* outBuffer = NULL, size_t outMaxSize = 0, const char* prefix = NULL,
-                                  uint32_t timeout = DEFAULT_READ_MS);
+                                  uint32_t timeout = R4X_DEFAULT_RESPONSE_TIMEOUT);
 
     void   reboot();
     bool   setSimPin(const char* simPin);
-    bool   waitForSignalQuality(uint32_t timeout = 5L * 60L * 1000);
+#define R4X_DEFAULT_CSQ_TIMEOUT         (5L * 60L * 1000)
+    bool   waitForSignalQuality(uint32_t timeout = R4X_DEFAULT_CSQ_TIMEOUT);
 
 
     /******************************************************************************
@@ -408,6 +398,32 @@ private:
     static uint32_t convertDatetimeToEpoch(int y, int m, int d, int h, int min, int sec);
     static bool startsWith(const char* pre, const char* str);
 
+    /******************************************************************************
+     * Network Stuff
+     *****************************************************************************/
+
+    uint8_t     _cid;
+    uint32_t    _httpGetHeaderSize;
+    tribool_t   _httpRequestSuccessBit[HttpRequestTypesMAX];
+    int8_t      _mqttLoginResult;
+    int16_t     _mqttPendingMessages;
+    int8_t      _mqttSubscribeReason;
+    bool        _networkStatusLED;
+    char*       _pin;
+    bool        _socketClosed[SOCKET_COUNT];
+    size_t      _socketPendingBytes[SOCKET_COUNT];
+
+//    uint32_t    _attach_timeout = R4X_DEFAULT_ATTACH_TIMEOUT;
+    uint32_t    _disconnect_timeout;
+    uint32_t    _cgact_timeout;
+    uint32_t    _cops_timeout;
+    uint32_t    _socket_close_timeout;
+    uint32_t    _socket_connect_timeout;
+    uint32_t    _socket_write_timeout;
+    uint32_t    _umqtt_timeout;
+
+
+    PublishHandlerPtr _mqttPublishHandler = NULL;
 
     /******************************************************************************
      * Generic
