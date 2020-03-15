@@ -304,7 +304,7 @@ bool Sodaq_R4X::connect(const char* apn, const char* urat, uint8_t mnoProfile,
 
 bool Sodaq_R4X::connect(const char* apn, const char* urat, const char* bandMask)
 {
-    connect(apn, urat, SIM_ICCID, AUTOMATIC_OPERATOR, BAND_MASK_UNCHANGED, bandMask);
+    return connect(apn, urat, SIM_ICCID, AUTOMATIC_OPERATOR, BAND_MASK_UNCHANGED, bandMask);
 }
 
 // Disconnects the modem from the network.
