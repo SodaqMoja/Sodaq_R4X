@@ -89,6 +89,15 @@ public:
     void    setMinCSQ(int csq) { _minRSSI = convertCSQ2RSSI(csq); }
     void    setMinRSSI(int rssi) { _minRSSI = rssi; }
 
+    /* Generic function to execute whatever AT command
+     */
+    bool    execCommand(const char* command, uint32_t timeout = SODAQ_UBLOX_DEFAULT_RESPONSE_TIMEOUT);
+    bool    execCommand(const String& command, uint32_t timeout = SODAQ_UBLOX_DEFAULT_RESPONSE_TIMEOUT);
+    bool    execCommand(const char* command, char* buffer, size_t size,
+                        uint32_t timeout = SODAQ_UBLOX_DEFAULT_RESPONSE_TIMEOUT);
+    bool    execCommand(const String& command, char* buffer, size_t size,
+                        uint32_t timeout = SODAQ_UBLOX_DEFAULT_RESPONSE_TIMEOUT);
+
 protected:
     /***********************************************************/
     /* UART */

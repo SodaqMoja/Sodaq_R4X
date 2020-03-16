@@ -187,6 +187,33 @@ bool Sodaq_Ublox::getRSSIAndBER(int8_t* rssi, uint8_t* ber)
     return true;
 }
 
+bool Sodaq_Ublox::execCommand(const char* command, uint32_t timeout)
+{
+    println(command);
+
+    return (readResponse(NULL, 0, NULL, timeout) == GSMResponseOK);
+}
+
+bool Sodaq_Ublox::execCommand(const String& command, uint32_t timeout)
+{
+    println(command);
+
+    return (readResponse(NULL, 0, NULL, timeout) == GSMResponseOK);
+}
+
+bool Sodaq_Ublox::execCommand(const char* command, char* buffer, size_t size, uint32_t timeout)
+{
+    println(command);
+
+    return (readResponse(buffer, size, NULL, timeout) == GSMResponseOK);
+}
+
+bool Sodaq_Ublox::execCommand(const String& command, char* buffer, size_t size, uint32_t timeout)
+{
+    println(command);
+
+    return (readResponse(buffer, size, NULL, timeout) == GSMResponseOK);
+}
 
 /**
  * Wait for a prompt

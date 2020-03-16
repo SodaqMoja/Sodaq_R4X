@@ -730,34 +730,6 @@ SimStatuses Sodaq_R4X::getSimStatus()
     return SimMissing;
 }
 
-bool Sodaq_R4X::execCommand(const char* command, uint32_t timeout)
-{
-    println(command);
-
-    return (readResponse(NULL, 0, NULL, timeout) == GSMResponseOK);
-}
-
-bool Sodaq_R4X::execCommand(const String& command, uint32_t timeout)
-{
-    println(command);
-
-    return (readResponse(NULL, 0, NULL, timeout) == GSMResponseOK);
-}
-
-bool Sodaq_R4X::execCommand(const char* command, char* buffer, size_t size, uint32_t timeout)
-{
-    println(command);
-
-    return (readResponse(buffer, size, NULL, timeout) == GSMResponseOK);
-}
-
-bool Sodaq_R4X::execCommand(const String& command, char* buffer, size_t size, uint32_t timeout)
-{
-    println(command);
-
-    return (readResponse(buffer, size, NULL, timeout) == GSMResponseOK);
-}
-
 // Returns true if the modem replies to "AT" commands without timing out.
 bool Sodaq_R4X::isAlive()
 {

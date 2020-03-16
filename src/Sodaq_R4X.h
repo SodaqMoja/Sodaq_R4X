@@ -32,7 +32,6 @@ POSSIBILITY OF SUCH DAMAGE.
 #ifndef _Sodaq_R4X_h
 #define _Sodaq_R4X_h
 
-#define R4X_DEFAULT_RESPONSE_TIMEOUT            5000
 #define SODAQ_MAX_SEND_MESSAGE_SIZE     512
 #define SODAQ_R4X_DEFAULT_CID           1
 #define SODAQ_R4X_DEFAULT_READ_TIMOUT   15000
@@ -159,10 +158,6 @@ public:
     bool getFirmwareRevision(char* buffer, size_t size);
     bool getIMEI(char* buffer, size_t size);
     SimStatuses getSimStatus();
-    bool execCommand(const char* command, uint32_t timeout = R4X_DEFAULT_RESPONSE_TIMEOUT);
-    bool execCommand(const String& command, uint32_t timeout = R4X_DEFAULT_RESPONSE_TIMEOUT);
-    bool execCommand(const char* command, char* buffer, size_t size, uint32_t timeout = R4X_DEFAULT_RESPONSE_TIMEOUT);
-    bool execCommand(const String& command, char* buffer, size_t size, uint32_t timeout = R4X_DEFAULT_RESPONSE_TIMEOUT);
 
     // Returns true if the modem replies to "AT" commands without timing out.
     bool isAlive();
