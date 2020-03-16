@@ -193,7 +193,7 @@ public:
     void setNetworkStatusLED(bool on) { _networkStatusLED = on; };
     void setPin(const char* pin);
     bool setRadioActive(bool on);
-    void setPowerSavingMode(bool on) { _psm = on; }
+    void setPowerSavingMode(bool on) { _psm = on; _upsv = on; }
     bool setVerboseErrors(bool on);
 
 
@@ -369,6 +369,9 @@ private:
 
     // Power Saving Mode (PSM)
     bool _psm;
+
+    // Power Saving Control (UPSV)
+    bool _upsv;
 
     char*       _pin;
     const char* _urat;

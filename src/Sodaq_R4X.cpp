@@ -35,7 +35,6 @@ POSSIBILITY OF SUCH DAMAGE.
 //#define DEBUG
 
 #define EPOCH_TIME_OFF          946684800  /* This is 1st January 2000, 00:00:00 in epoch time */
-#define POWER_ON_DELAY          2000
 #define ATTACH_NEED_REBOOT      40000
 #define REBOOT_DELAY            1250
 #define REBOOT_TIMEOUT          15000
@@ -104,6 +103,7 @@ Sodaq_R4X::Sodaq_R4X() : Sodaq_Ublox()
     _echoOff = false;
     _hexMode = false;
     _psm = true;
+    _upsv = false;
 
     _mqttLoginResult     = -1;
     _mqttPendingMessages = -1;
@@ -145,7 +145,19 @@ void Sodaq_R4X::init(Sodaq_OnOffBee* onoff, Uart& uart, uint32_t baud)
     setOnOff(onoff);
 }
 
-// Turns the modem on and returns true if successful.
+/**
+ * Turns the modem on and returns true if successful.
+ *
+ * With the _onoff we keep track of the power supply.
+ * The following situations can occur:
+ * 1. the modem is turned off from power (onoff power off)
+ * 2. the modem is on (onoff power on), and reacts to AT commands
+ * 3. the modem is on (onoff power on), but is in PSM (Power Safe Mode)
+ *    In this situation it wakes up after the first AT command. So a second
+ *    AT command is needed to be sure that it responds to it.
+ * 4. the modem is on (onoff power on), but it does not respond to AT
+ *    commands
+ */
 bool Sodaq_R4X::on()
 {
     debugPrintln("[R4X on]");
@@ -154,14 +166,28 @@ bool Sodaq_R4X::on()
         return false;
     }
 
+    bool need_power_toggle = false;
+    bool was_off = !isOn();
+
     _startOn = millis();
 
-    if (!isOn()) {
+    if (isOn()) {
+        if (isAlive(1)) {
+            return true;
+        }
+
+        /* Even if we think it is on, the modem could have gone into
+         * Power Safe Mode.
+         * In that case it needs to be toggled on.
+         */
+        need_power_toggle = true;
+    }
+
+    if (!isOn() || need_power_toggle) {
         _onoff->on();
+    }
 
-        // wait for the modem to start
-        sodaq_wdt_safe_delay(POWER_ON_DELAY);
-
+    if (was_off) {
         uint32_t baud = determineBaudRate(_baudRate);
         if (baud == 0) {
             debugPrintln("ERROR: No Reply from Modem");
@@ -195,6 +221,13 @@ bool Sodaq_R4X::on()
         }
         else {
             execCommand("AT+CPSMS=0");
+        }
+
+        if (_upsv) {
+            execCommand("AT+UPSV=4");
+        }
+        else {
+            execCommand("AT+UPSV=0");
         }
 
         execCommand("AT+CPSMS?");
@@ -415,6 +448,14 @@ bool Sodaq_R4X::connect()
     else {
         execCommand("AT+CPSMS=0");
     }
+
+    if (_upsv) {
+        execCommand("AT+UPSV=4");
+    }
+    else {
+        execCommand("AT+UPSV=0");
+    }
+
     execCommand("AT+CPSMS?");
     execCommand("AT+CEDRXS?");
     execCommand("AT+UPSV?");
@@ -2648,6 +2689,9 @@ Sodaq_SARA_R4XX_OnOff::Sodaq_SARA_R4XX_OnOff()
 
     digitalWrite(SARA_TX_ENABLE, LOW);
     pinMode(SARA_TX_ENABLE, OUTPUT);
+
+    pinMode(SARA_R4XX_TOGGLE, INPUT);
+    digitalWrite(SARA_R4XX_TOGGLE, HIGH);
 #endif
 
     _onoff_status = false;
