@@ -149,10 +149,14 @@ void Sodaq_R4X::init(Sodaq_OnOffBee* onoff, Uart& uart, uint32_t baud)
 bool Sodaq_R4X::on()
 {
     debugPrintln("[R4X on]");
+    if (!_onoff) {
+        debugPrintln("[R4X on] Missing _onoff");
+        return false;
+    }
 
     _startOn = millis();
 
-    if (!isOn() && _onoff) {
+    if (!isOn()) {
         _onoff->on();
 
         // wait for the modem to start
@@ -201,6 +205,10 @@ bool Sodaq_R4X::on()
 bool Sodaq_R4X::off()
 {
     debugPrintln("[R4X off]");
+    if (!_onoff) {
+        debugPrintln("[R4X off] Missing _onoff");
+        return false;
+    }
 
     // Safety command to shutdown, response is ignored
     if (isOn()) {
@@ -210,9 +218,7 @@ bool Sodaq_R4X::off()
     }
 
     // No matter if it is on or off, turn it off.
-    if (_onoff) {
-        _onoff->off();
-    }
+    _onoff->off();
 
     _echoOff = false;
     _hexMode = false;
