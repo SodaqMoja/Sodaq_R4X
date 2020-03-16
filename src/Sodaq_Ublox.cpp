@@ -143,6 +143,9 @@ uint32_t Sodaq_Ublox::determineBaudRate()
 
     for (size_t ix = 0; ; ix++) {
         baud = getNthValidBaudRate(ix);
+        if (baud == 0) {
+            break;
+        }
         _modemUART->begin(baud);
         timeout = true;
         for (uint8_t i = 0; i < retry_count; i++) {
