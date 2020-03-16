@@ -1040,7 +1040,7 @@ int Sodaq_R4X::socketCreate(uint16_t localPort, Protocols protocol)
 }
 
 /**
- * Flush the bytes in the send buffer of a (TCP, UDP) socket
+ * Flush the bytes in the send buffer of a TCP socket
  *
  * \returns true all bytes flushed
  * \returns true if socket closed
