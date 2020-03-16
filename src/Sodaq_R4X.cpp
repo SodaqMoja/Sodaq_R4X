@@ -193,6 +193,13 @@ bool Sodaq_R4X::on()
                 return false;
             }
         }
+
+        if (_psm) {
+            execCommand("AT+CPSMS=1");
+        }
+        else {
+            execCommand("AT+CPSMS=0");
+        }
     }
 
     return isOn(); // this essentially means isOn() && isAlive()
@@ -324,13 +331,6 @@ bool Sodaq_R4X::connect()
 
     switchEchoOff();
 
-    if (_psm) {
-        execCommand("AT+CPSMS=1");
-    }
-    else {
-        execCommand("AT+CPSMS=0");
-    }
-
     if (!checkCFUN()) {
         return false;
     }
@@ -405,6 +405,13 @@ bool Sodaq_R4X::connect()
         if (!attachGprs()) {
             return false;
         }
+    }
+
+    if (_psm) {
+        execCommand("AT+CPSMS=1");
+    }
+    else {
+        execCommand("AT+CPSMS=0");
     }
 
     return doSIMcheck();
