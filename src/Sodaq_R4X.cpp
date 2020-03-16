@@ -2658,9 +2658,9 @@ void Sodaq_SARA_R4XX_OnOff::on()
      * in the R4X.
      */
     pinMode(SARA_R4XX_TOGGLE, INPUT);
+#endif
 
     _onoff_status = true;
-#endif
 }
 
 void Sodaq_SARA_R4XX_OnOff::off()
@@ -2671,9 +2671,9 @@ void Sodaq_SARA_R4XX_OnOff::off()
      */
     digitalWrite(SARA_ENABLE, LOW);
     digitalWrite(SARA_TX_ENABLE, LOW);
+#endif
 
     _onoff_status = false;
-#endif
 }
 
 bool Sodaq_SARA_R4XX_OnOff::isOn()
