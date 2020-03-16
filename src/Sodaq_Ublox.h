@@ -36,7 +36,10 @@ POSSIBILITY OF SUCH DAMAGE.
 
 #include <Arduino.h>
 
-#define SODAQ_UBLOX_DEFAULT_RESPONSE_TIMEOUT            5000
+#define SODAQ_UBLOX_DEFAULT_RESPONSE_TIMEOUT    5000
+#define SODAQ_UBLOX_DEFAULT_SOCKET_TIMEOUT      15000
+
+#define SODAQ_UBLOX_SOCKET_COUNT        7
 
 enum GSMResponseTypes {
     GSMResponseNotFound = 0,
@@ -72,13 +75,38 @@ public:
     virtual bool on() = 0;
     virtual bool off() = 0;
 
-    // Sets the optional "Diagnostics and Debug" print.
-    void setDiag(Print &print) { _diagPrint = &print; }
-    void setDiag(Print *print) { _diagPrint = print; }
-
     // Sets the size of the input buffer.
     // Needs to be called before init().
     void setInputBufferSize(size_t value) { _inputBufferSize = value; };
+
+    /******************************************************************************
+     * Connect / Disconnect
+     *****************************************************************************/
+
+    virtual bool connect() = 0;
+    void    setConnectTimeout(uint32_t t) { _connect_timeout = t; }
+
+    /******************************************************************************
+    * Sockets
+    *****************************************************************************/
+
+    virtual int socketCreate(uint16_t localPort = 0, Protocols protocol = UDP) = 0;
+    virtual bool socketClose(uint8_t socketID, bool async = false) = 0;
+    int    socketCloseAll();
+
+    // UDP only
+    virtual size_t socketSend(uint8_t socketID,
+            const char* remoteHost, const uint16_t remotePort,
+            const uint8_t* buffer, size_t size) = 0;
+    virtual bool   socketWaitForReceive(uint8_t socketID,
+            uint32_t timeout = SODAQ_UBLOX_DEFAULT_SOCKET_TIMEOUT) = 0;
+    virtual size_t socketReceive(uint8_t socketID, uint8_t* buffer, size_t length) = 0;
+
+    size_t socketGetPendingBytes(uint8_t socketID);
+    bool   socketHasPendingBytes(uint8_t socketID);
+
+    // Timeouts for socket functions
+    void   setSocketWriteTimeout(uint32_t t) { _socket_write_timeout = t; }
 
     /******************************************************************************
      * Generic Info
@@ -90,6 +118,10 @@ public:
     bool getFirmwareVersion(char* buffer, size_t size);
     bool getFirmwareRevision(char* buffer, size_t size);
     virtual bool getIMEI(char* buffer, size_t size) = 0;
+    virtual bool getEpoch(uint32_t* epoch) = 0;
+    virtual bool getOperatorInfo(uint16_t* mcc, uint16_t* mnc) = 0;
+    virtual bool getOperatorInfoString(char* buffer, size_t size) = 0;
+    virtual bool getCellInfo(uint16_t* tac, uint32_t* cid, uint16_t* urat) = 0;
 
     /******************************************************************************
      * RSSI and CSQ
@@ -117,6 +149,10 @@ public:
                         uint32_t timeout = SODAQ_UBLOX_DEFAULT_RESPONSE_TIMEOUT);
     bool    execCommand(const String& command, char* buffer, size_t size,
                         uint32_t timeout = SODAQ_UBLOX_DEFAULT_RESPONSE_TIMEOUT);
+
+    // Sets the optional "Diagnostics and Debug" print.
+    void setDiag(Print &print) { _diagPrint = &print; }
+    void setDiag(Print *print) { _diagPrint = print; }
 
 protected:
     /***********************************************************/
@@ -234,6 +270,19 @@ protected:
 
     // The requested baudrate
     uint32_t _baudRate;
+
+    // Keep track when connect started. Use this to record various status changes.
+    uint32_t _startOn;
+
+    uint32_t    _connect_timeout;
+    uint32_t    _disconnect_timeout;
+
+    bool        _socketClosed[SODAQ_UBLOX_SOCKET_COUNT];
+    size_t      _socketPendingBytes[SODAQ_UBLOX_SOCKET_COUNT];
+
+    uint32_t    _socket_close_timeout;
+    uint32_t    _socket_connect_timeout;
+    uint32_t    _socket_write_timeout;
 
 private:
     // This is the value of the most recent CSQ

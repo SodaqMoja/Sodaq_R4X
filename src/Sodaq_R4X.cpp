@@ -41,13 +41,8 @@ POSSIBILITY OF SUCH DAMAGE.
 #define REBOOT_TIMEOUT          15000
 #define POWER_OFF_DELAY         5000
 
-#define DEFAULT_CONNECT_TIMEOUT         (10L * 60L * 1000)
-#define DEFAULT_DISCONNECT_TIMEOUT      (40L * 1000)
 #define DEFAULT_CGACT_TIMEOUT           (150L * 1000)
 #define DEFAULT_COPS_TIMEOUT            (180L * 1000)
-#define DEFAULT_SOCKET_CLOSE_TIMEOUT    (120L * 1000)
-#define DEFAULT_SOCKET_CONNECT_TIMEOUT  (120L * 1000)
-#define DEFAULT_SOCKET_WRITE_TIMEOUT    (120L * 1000)
 #define DEFAULT_UMQTT_TIMEOUT           (60L * 1000)
 
 /**
@@ -107,7 +102,6 @@ Sodaq_R4X::Sodaq_R4X() : Sodaq_Ublox()
     _echoOff = false;
     _hexMode = false;
     _psm = true;
-    _startOn = 0;
 
     _mqttLoginResult     = -1;
     _mqttPendingMessages = -1;
@@ -126,13 +120,8 @@ Sodaq_R4X::Sodaq_R4X() : Sodaq_Ublox()
     }
     memset(_socketPendingBytes, 0, sizeof(_socketPendingBytes));
 
-    _connect_timeout = DEFAULT_CONNECT_TIMEOUT;
-    _disconnect_timeout = DEFAULT_DISCONNECT_TIMEOUT;
     _cgact_timeout = DEFAULT_CGACT_TIMEOUT;
     _cops_timeout = DEFAULT_COPS_TIMEOUT;
-    _socket_close_timeout = DEFAULT_SOCKET_CLOSE_TIMEOUT;
-    _socket_connect_timeout = DEFAULT_SOCKET_CONNECT_TIMEOUT;
-    _socket_write_timeout = DEFAULT_SOCKET_WRITE_TIMEOUT;
     _umqtt_timeout = DEFAULT_UMQTT_TIMEOUT;
 }
 
@@ -779,20 +768,6 @@ bool Sodaq_R4X::socketClose(uint8_t socketID, bool async)
     return true;
 }
 
-int Sodaq_R4X::socketCloseAll() {
-
-    int closedCount = 0;
-
-    for (uint8_t i = 0; i < SOCKET_COUNT; i++) {
-        if (socketClose(i, false)) {
-            closedCount++;
-        }
-    }
-
-    // return the number of sockets we closed
-    return closedCount;
-}
-
 bool Sodaq_R4X::socketConnect(uint8_t socketID, const char* remoteHost, const uint16_t remotePort)
 {
     print("AT+USOCO=");
@@ -836,7 +811,7 @@ int Sodaq_R4X::socketCreate(uint16_t localPort, Protocols protocol)
 
     int socketID;
 
-    if ((sscanf(buffer, "%d", &socketID) != 1) || (socketID < 0) || (socketID > SOCKET_COUNT)) {
+    if ((sscanf(buffer, "%d", &socketID) != 1) || (socketID < 0) || (socketID > SODAQ_UBLOX_SOCKET_COUNT)) {
         return -1;
     }
 
@@ -902,16 +877,6 @@ bool Sodaq_R4X::socketFlush(uint8_t socketID, uint32_t timeout)
     return false;
 }
 
-size_t Sodaq_R4X::socketGetPendingBytes(uint8_t socketID)
-{
-    return _socketPendingBytes[socketID];
-}
-
-bool Sodaq_R4X::socketHasPendingBytes(uint8_t socketID)
-{
-    return socketGetPendingBytes(socketID) > 0;
-}
-
 bool Sodaq_R4X::socketIsClosed(uint8_t socketID)
 {
     return _socketClosed[socketID];
@@ -957,7 +922,7 @@ size_t Sodaq_R4X::socketRead(uint8_t socketID, uint8_t* buffer, size_t size)
 
     /* TODO Maybe it is better to check socketID == retSocketID
      */
-    if ((retSocketID < 0) || (retSocketID >= SOCKET_COUNT)) {
+    if ((retSocketID < 0) || (retSocketID >= SODAQ_UBLOX_SOCKET_COUNT)) {
         return 0;
     }
 
@@ -1012,7 +977,7 @@ size_t Sodaq_R4X::socketReceive(uint8_t socketID, uint8_t* buffer, size_t size)
 
     /* TODO Maybe it is better to check socketID == retSocketID
      */
-    if ((retSocketID < 0) || (retSocketID >= SOCKET_COUNT)) {
+    if ((retSocketID < 0) || (retSocketID >= SODAQ_UBLOX_SOCKET_COUNT)) {
         return 0;
     }
 
@@ -1218,7 +1183,7 @@ size_t Sodaq_R4X::socketWrite(uint8_t socketID, const uint8_t* buffer, size_t si
     int sentLength;
     if ((sscanf(outBuffer, "%d,%d", &retSocketID, &sentLength) != 2) ||
         (retSocketID < 0) ||
-        (retSocketID > SOCKET_COUNT)) {
+        (retSocketID > SODAQ_UBLOX_SOCKET_COUNT)) {
         return 0;
     }
 
@@ -2493,7 +2458,7 @@ bool Sodaq_R4X::checkURC(const char* buffer)
         debugPrint(": ");
         debugPrintln(param2);
 
-        if (param1 >= 0 && param1 < SOCKET_COUNT) {
+        if (param1 >= 0 && param1 < SODAQ_UBLOX_SOCKET_COUNT) {
             _socketPendingBytes[param1] = param2;
         }
 
@@ -2506,7 +2471,7 @@ bool Sodaq_R4X::checkURC(const char* buffer)
         debugPrint(": ");
         debugPrintln(param2);
 
-        if (param1 >= 0 && param1 < SOCKET_COUNT) {
+        if (param1 >= 0 && param1 < SODAQ_UBLOX_SOCKET_COUNT) {
             _socketPendingBytes[param1] = param2;
         }
 
@@ -2517,7 +2482,7 @@ bool Sodaq_R4X::checkURC(const char* buffer)
         debugPrint("Unsolicited: Socket ");
         debugPrintln(param1);
 
-        if (param1 >= 0 && param1 < SOCKET_COUNT) {
+        if (param1 >= 0 && param1 < SODAQ_UBLOX_SOCKET_COUNT) {
             _socketClosed[param1] = true;
         }
 

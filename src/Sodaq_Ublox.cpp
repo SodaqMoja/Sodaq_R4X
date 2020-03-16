@@ -38,6 +38,12 @@ POSSIBILITY OF SUCH DAMAGE.
 
 #define SODAQ_UBLOX_DEFAULT_INPUT_BUFFER_SIZE   1024
 
+#define DEFAULT_CONNECT_TIMEOUT         (10L * 60L * 1000)
+#define DEFAULT_DISCONNECT_TIMEOUT      (40L * 1000)
+#define DEFAULT_SOCKET_CLOSE_TIMEOUT    (120L * 1000)
+#define DEFAULT_SOCKET_CONNECT_TIMEOUT  (120L * 1000)
+#define DEFAULT_SOCKET_WRITE_TIMEOUT    (120L * 1000)
+
 #define SODAQ_UBLOX_TERMINATOR          "\r\n"
 #define SODAQ_UBLOX_TERMINATOR_LEN      (sizeof(SODAQ_UBLOX_TERMINATOR) - 1)
 
@@ -69,6 +75,14 @@ Sodaq_Ublox::Sodaq_Ublox()
     _CSQtime = 0;
     _lastRSSI            = 0;
     _minRSSI             = -113;  // dBm
+
+    _startOn = 0;
+    _connect_timeout = DEFAULT_CONNECT_TIMEOUT;
+    _disconnect_timeout = DEFAULT_DISCONNECT_TIMEOUT;
+
+    _socket_close_timeout = DEFAULT_SOCKET_CLOSE_TIMEOUT;
+    _socket_connect_timeout = DEFAULT_SOCKET_CONNECT_TIMEOUT;
+    _socket_write_timeout = DEFAULT_SOCKET_WRITE_TIMEOUT;
 
     _isBufferInitialized = false;
     _inputBuffer         = 0;
@@ -283,6 +297,30 @@ bool Sodaq_Ublox::getRSSIAndBER(int8_t* rssi, uint8_t* ber)
     *ber  = ((berRaw == 99 || static_cast<size_t>(berRaw) >= sizeof(berValues)) ? 0 : berValues[berRaw]);
 
     return true;
+}
+
+int Sodaq_Ublox::socketCloseAll() {
+
+    int closedCount = 0;
+
+    for (uint8_t i = 0; i < SODAQ_UBLOX_SOCKET_COUNT; i++) {
+        if (socketClose(i, false)) {
+            closedCount++;
+        }
+    }
+
+    // return the number of sockets we closed
+    return closedCount;
+}
+
+size_t Sodaq_Ublox::socketGetPendingBytes(uint8_t socketID)
+{
+    return _socketPendingBytes[socketID];
+}
+
+bool Sodaq_Ublox::socketHasPendingBytes(uint8_t socketID)
+{
+    return socketGetPendingBytes(socketID) > 0;
 }
 
 bool Sodaq_Ublox::execCommand(const char* command, uint32_t timeout)

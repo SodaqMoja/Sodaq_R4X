@@ -34,7 +34,6 @@ POSSIBILITY OF SUCH DAMAGE.
 
 #define SODAQ_MAX_SEND_MESSAGE_SIZE     512
 #define SODAQ_R4X_DEFAULT_CID           1
-#define SODAQ_R4X_DEFAULT_READ_TIMOUT   15000
 #define SODAQ_R4X_MAX_SOCKET_BUFFER     1024
 
 #define SODAQ_R4X_LTEM_URAT             "7"
@@ -94,8 +93,6 @@ typedef void(*PublishHandlerPtr)(const char* topic, const char* msg);
 
 #define BAND_TO_MASK(x) (1 << (x - 1))
 
-#define SOCKET_COUNT 7
-
 class Sodaq_SARA_R4XX_OnOff : public Sodaq_OnOffBee
 {
 public:
@@ -127,13 +124,13 @@ public:
 
     bool enableHexMode();
 
+    bool connect();
     // Turns on and initializes the modem, then connects to the network and activates the data connection.
     bool connect(const char* apn, const char* urat = DEFAULT_URAT,
         const char* bandMask = BAND_MASK_UNCHANGED);
     bool connect(const char* apn, const char* urat, uint8_t mnoProfile,
         const char* operatorSelect = AUTOMATIC_OPERATOR, const char* bandMaskLTE = BAND_MASK_UNCHANGED, 
         const char* bandMaskNB = BAND_MASK_UNCHANGED);
-    void setConnectTimeout(uint32_t t) { _connect_timeout = t; }
 
     // Disconnects the modem from the network.
     bool disconnect();
@@ -141,11 +138,12 @@ public:
 #define R4X_DEFAULT_ATTACH_TIMEOUT      (10L * 60L * 1000)
     bool attachGprs(uint32_t timeout = R4X_DEFAULT_ATTACH_TIMEOUT);
     bool bandMasktoStr(const uint64_t bandMask, char* str, size_t size);
+
+    bool getIMEI(char* buffer, size_t size);
+    bool getEpoch(uint32_t* epoch);
     bool getOperatorInfo(uint16_t* mcc, uint16_t* mnc);
     bool getOperatorInfoString(char* buffer, size_t size);
     bool getCellInfo(uint16_t* tac, uint32_t* cid, uint16_t* urat);
-    bool getEpoch(uint32_t* epoch);
-    bool getIMEI(char* buffer, size_t size);
 
     SimStatuses getSimStatus();
 
@@ -182,24 +180,21 @@ public:
     size_t socketWrite(uint8_t socketID, const uint8_t* buffer, size_t size);
 
     // TCP only
-    bool   socketWaitForRead(uint8_t socketID, uint32_t timeout = SODAQ_R4X_DEFAULT_READ_TIMOUT);
+    bool   socketWaitForRead(uint8_t socketID, uint32_t timeout = SODAQ_UBLOX_DEFAULT_SOCKET_TIMEOUT);
     size_t socketRead(uint8_t socketID, uint8_t* buffer, size_t length);
 
     // UDP only
-    size_t socketSend(uint8_t socketID, const char* remoteHost, const uint16_t remotePort, const uint8_t* buffer, size_t size);
-    bool   socketWaitForReceive(uint8_t socketID, uint32_t timeout = SODAQ_R4X_DEFAULT_READ_TIMOUT);
+    size_t socketSend(uint8_t socketID,
+            const char* remoteHost, const uint16_t remotePort,
+            const uint8_t* buffer, size_t size);
+    bool   socketWaitForReceive(uint8_t socketID,
+            uint32_t timeout = SODAQ_UBLOX_DEFAULT_SOCKET_TIMEOUT);
     size_t socketReceive(uint8_t socketID, uint8_t* buffer, size_t length);
 
     bool   socketClose(uint8_t socketID, bool async = false);
-    int    socketCloseAll();
     bool   socketFlush(uint8_t socketID, uint32_t timeout = 20000);
     bool   socketIsClosed(uint8_t socketID);
     bool   socketWaitForClose(uint8_t socketID, uint32_t timeout);
-
-    size_t socketGetPendingBytes(uint8_t socketID);
-    bool   socketHasPendingBytes(uint8_t socketID);
-
-    void   setSocketWriteTimeout(uint32_t t) { _socket_write_timeout = t; }
 
     /******************************************************************************
     * MQTT
@@ -327,14 +322,8 @@ private:
     int8_t      _mqttSubscribeReason;
     bool        _networkStatusLED;
     char*       _pin;
-    bool        _socketClosed[SOCKET_COUNT];
-    size_t      _socketPendingBytes[SOCKET_COUNT];
 
     PublishHandlerPtr _mqttPublishHandler = NULL;
-
-    uint32_t    _socket_close_timeout;
-    uint32_t    _socket_connect_timeout;
-    uint32_t    _socket_write_timeout;
 
     uint32_t    _umqtt_timeout;
 
@@ -351,11 +340,6 @@ private:
     // Power Saving Mode (PSM)
     bool _psm;
 
-    // Keep track when connect started. Use this to record various status changes.
-    uint32_t _startOn;
-
-    uint32_t    _connect_timeout;
-    uint32_t    _disconnect_timeout;
     uint32_t    _cgact_timeout;
     uint32_t    _cops_timeout;
 
