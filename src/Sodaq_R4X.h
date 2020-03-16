@@ -361,7 +361,7 @@ public:
 
 
 private:
-    int8_t checkApn(const char* requiredAPN); // -1: error, 0: ip not valid => need attach, 1: valid ip
+    bool   checkApn(const char* requiredAPN);
     bool   checkBandMasks(const char* bandMaskLTE, const char* bandMaskNB);
     bool   checkCFUN();
     bool   checkCOPS(const char* requiredOperator, const char* requiredURAT);

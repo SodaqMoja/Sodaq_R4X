@@ -397,8 +397,7 @@ bool Sodaq_R4X::connect(const char* apn, const char* urat, uint8_t mnoProfile,
         return false;
     }
 
-    int8_t i = checkApn(apn);
-    if (i < 0) {
+    if (!checkApn(apn)) {
         return false;
     }
     elapsed = millis() - start_ts;
@@ -418,7 +417,7 @@ bool Sodaq_R4X::connect(const char* apn, const char* urat, uint8_t mnoProfile,
         return false;
     }
 
-    if (i == 0 && !attachGprs(remaining_timeout)) {
+    if (!attachGprs(remaining_timeout)) {
         return false;
     }
 
@@ -819,11 +818,10 @@ bool Sodaq_R4X::isConnected()
 // Returns true if defined IP4 address is not 0.0.0.0.
 bool Sodaq_R4X::isDefinedIP4()
 {
-    // FIXME Use AT+CGPADDR=1. That is, if we are sure we use cid (context identifier) 1.
-    println("AT+CGDCONT?");
-
     char buffer[256];
 
+    // FIXME Use AT+CGPADDR=1. That is, if we are sure we use cid (context identifier) 1.
+    println("AT+CGDCONT?");
     // Expect response like this (already skipped "+CGDCONT: "):
     //     1,"IP","data.mono","10.140.4.195",0,0,0,0
     if (readResponse(buffer, sizeof(buffer), "+CGDCONT: ") != GSMResponseOK) {
@@ -2385,39 +2383,30 @@ bool Sodaq_R4X::writeFile(const char* filename, const uint8_t* buffer, size_t si
 /**
  * Check APN
  *
- * \returns 0 APN is correct, IP address is 0.0.0.0
- * \returns 1 APN is correct, IP address is other than 0.0.0.0
- * \returns -1 an error occurred
  */
-int8_t Sodaq_R4X::checkApn(const char* requiredAPN)
+bool Sodaq_R4X::checkApn(const char* requiredAPN)
 {
     char buffer[256];
-
     println("AT+CGDCONT?");
+    // Expect response like this (already skipped "+CGDCONT: "):
+    //     1,"IP","data.mono","10.140.4.195",0,0,0,0
     if (readResponse(buffer, sizeof(buffer), "+CGDCONT: ") != GSMResponseOK) {
-        return -1;
+        return false;
     }
 
     if (strncmp(buffer, "1,\"IP\"", 6) == 0 && strncmp(buffer + 6, ",\"\"", 3) != 0) {
         char apn[64];
-        char ip[32];
 
-        if (sscanf(buffer + 6, ",\"%[^\"]\",\"%[^\"]\",0,0,0,0", apn, ip) != 2) {
-            return -1;
+        if (sscanf(buffer + 6, ",\"%[^\"]\"", apn) != 1) {
+            return false;
         }
 
         if (strcmp(apn, requiredAPN) == 0) {
-            // TODO Why not just strcmp(ip, "0.0.0.0") == 0 => return 0 ??
-            if (strlen(ip) >= 7 && strcmp(ip, "0.0.0.0") != 0) { 
-                return 1; 
-            }
-            else {
-                return 0;
-            }
+            return true;
         }
     }
 
-    return setApn(requiredAPN) ? 0 : -1;
+    return setApn(requiredAPN);
 }
 
 bool Sodaq_R4X::checkBandMasks(const char* bandMaskLTE, const char* bandMaskNB)
