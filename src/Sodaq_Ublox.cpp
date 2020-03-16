@@ -124,9 +124,19 @@ bool Sodaq_Ublox::isOn() const
 }
 
 // Returns true if the modem replies to "AT" commands without timing out.
-bool Sodaq_Ublox::isAlive()
+bool Sodaq_Ublox::isAlive(size_t retry_count)
 {
-    return execCommand("AT", 450);
+    bool retval = false;
+    do {
+        if (execCommand("AT", 450)) {
+            retval = true;
+            break;
+        }
+        if (retry_count > 0) {
+            retry_count--;
+        }
+    } while (retry_count > 0);
+    return retval;
 }
 
 /**
@@ -135,26 +145,25 @@ bool Sodaq_Ublox::isAlive()
  * The modem is expected to be on. Try from a list of baudrates
  * until an "OK" is read from the modem.
  */
-uint32_t Sodaq_Ublox::determineBaudRate()
+uint32_t Sodaq_Ublox::determineBaudRate(uint32_t current)
 {
-    bool timeout;
     uint32_t baud;
-    const uint8_t retry_count = 5;
+    const uint8_t retry_count = 4;
 
+    /* Try current baudrate first
+    */
+    if (current != 0) {
+        if (isAlive(retry_count)) {
+            return current;
+        }
+    }
     for (size_t ix = 0; ; ix++) {
         baud = getNthValidBaudRate(ix);
         if (baud == 0) {
             break;
         }
         _modemUART->begin(baud);
-        timeout = true;
-        for (uint8_t i = 0; i < retry_count; i++) {
-            if (isAlive()) {
-                timeout = false;
-                break;
-            }
-        }
-        if (!timeout) {
+        if (isAlive(retry_count)) {
             return baud;
         }
     }

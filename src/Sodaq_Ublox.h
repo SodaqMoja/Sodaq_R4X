@@ -174,7 +174,7 @@ protected:
     bool isOn() const;
 
     // Returns true if the modem replies to "AT" commands without timing out.
-    bool isAlive();
+    bool isAlive(size_t retry_count = 0);
 
 #define SODAQ_UBLOX_DEFAULT_CSQ_TIMEOUT         (5L * 60L * 1000)
     bool   waitForSignalQuality(uint32_t timeout = SODAQ_UBLOX_DEFAULT_CSQ_TIMEOUT);
@@ -260,7 +260,7 @@ protected:
 
 protected:
     // Determine the current baudrate
-    uint32_t determineBaudRate();
+    uint32_t determineBaudRate(uint32_t current);
     virtual uint32_t getNthValidBaudRate(size_t nth) = 0;
     bool isValidSocketID(int id) { return id >= 0 && id < SODAQ_UBLOX_SOCKET_COUNT; }
 

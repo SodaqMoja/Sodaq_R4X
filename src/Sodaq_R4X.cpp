@@ -158,7 +158,7 @@ bool Sodaq_R4X::on()
         // wait for the modem to start
         sodaq_wdt_safe_delay(POWER_ON_DELAY);
 
-        uint32_t baud = determineBaudRate();
+        uint32_t baud = determineBaudRate(_baudRate);
         if (baud == 0) {
             debugPrintln("ERROR: No Reply from Modem");
             return false;
@@ -176,15 +176,7 @@ bool Sodaq_R4X::on()
                  */
                 sodaq_wdt_safe_delay(110);
 
-                bool timeout = true;
-                for (uint8_t i = 0; i < 10; i++) {
-                    if (isAlive()) {
-                        timeout = false;
-                        break;
-                    }
-                }
-
-                if (timeout) {
+                if (!isAlive(9)) {
                     debugPrintln("ERROR: No Reply from modem after baudrate switch");
                     return false;
                 }
@@ -202,7 +194,7 @@ bool Sodaq_R4X::on()
         }
     }
 
-    return isOn(); // this essentially means isOn() && isAlive()
+    return isOn();
 }
 
 // Turns the modem off and returns true if successful.
