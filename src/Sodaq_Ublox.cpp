@@ -112,6 +112,36 @@ bool Sodaq_Ublox::isAlive()
     return execCommand("AT", 450);
 }
 
+/**
+ * Determine the current baudrate
+ *
+ * The modem is expected to be on. Try from a list of baudrates
+ * until an "OK" is read from the modem.
+ */
+uint32_t Sodaq_Ublox::determineBaudRate()
+{
+    bool timeout;
+    uint32_t baud;
+    const uint8_t retry_count = 5;
+
+    for (size_t ix = 0; ; ix++) {
+        baud = getNthValidBaudRate(ix);
+        _modemUART->begin(baud);
+        timeout = true;
+        for (uint8_t i = 0; i < retry_count; i++) {
+            if (isAlive()) {
+                timeout = false;
+                break;
+            }
+        }
+        if (!timeout) {
+            return baud;
+        }
+    }
+
+    return 0;
+}
+
 /******************************************************************************
 * RSSI and CSQ
 *****************************************************************************/

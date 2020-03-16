@@ -199,6 +199,10 @@ protected:
     static bool isValidIPv4(const char* str);
 
 protected:
+    // Determine the current baudrate
+    uint32_t determineBaudRate();
+    virtual uint32_t getNthValidBaudRate(size_t nth) = 0;
+
     // The (optional) stream to show debug information.
     Print* _diagPrint;
 

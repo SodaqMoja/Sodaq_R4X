@@ -308,6 +308,8 @@ public:
     // If the file already exists, the data will be appended to the file already stored in the file system.
     bool   writeFile(const char* filename, const uint8_t* buffer, size_t size);
 
+protected:
+    uint32_t getNthValidBaudRate(size_t nth);
 
 private:
     bool   checkApn(const char* requiredAPN);
@@ -367,9 +369,6 @@ private:
     uint32_t    _disconnect_timeout;
     uint32_t    _cgact_timeout;
     uint32_t    _cops_timeout;
-
-    // Determine the current baudrate
-    uint32_t determineBaudRate();
 
     bool waitForSocketPrompt(uint32_t timeout);
     bool waitForFilePrompt(uint32_t timeout);

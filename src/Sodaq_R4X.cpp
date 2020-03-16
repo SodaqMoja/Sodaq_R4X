@@ -229,15 +229,12 @@ bool Sodaq_R4X::off()
 }
 
 /**
- * Determine the current baudrate
+ * Get the nth valid baudrate
  *
- * The modem is expected to be on. Try from a list of baudrates
- * until an "OK" is read from the modem.
  * The R4X supports 9600, 19200, 38400, 57600, 115200 (default and factory-
  * programmed value), 230400, 460800
- *
  */
-uint32_t Sodaq_R4X::determineBaudRate()
+uint32_t Sodaq_R4X::getNthValidBaudRate(size_t nth)
 {
     uint32_t baud_rates[] = {
             115200,
@@ -248,26 +245,10 @@ uint32_t Sodaq_R4X::determineBaudRate()
             38400,
             57600,
     };
-    bool timeout;
-    uint32_t baud;
-    const uint8_t retry_count = 5;
-
-    for (size_t ix = 0; ix < DIM(baud_rates); ix++) {
-        baud = baud_rates[ix];
-        _modemUART->begin(baud);
-        timeout = true;
-        for (uint8_t i = 0; i < retry_count; i++) {
-            if (isAlive()) {
-                timeout = false;
-                break;
-            }
-        }
-        if (!timeout) {
-            return baud;
-        }
+    if (nth >= DIM(baud_rates)) {
+        return 0;
     }
-
-    return 0;
+    return baud_rates[nth];
 }
 
 void Sodaq_R4X::switchEchoOff()
