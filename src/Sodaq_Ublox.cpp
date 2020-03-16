@@ -142,6 +142,68 @@ uint32_t Sodaq_Ublox::determineBaudRate()
     return 0;
 }
 
+// Gets Integrated Circuit Card ID.
+// Should be provided with a buffer of at least 21 bytes.
+// Returns true if successful.
+bool Sodaq_Ublox::getCCID(char* buffer, size_t size)
+{
+    if (buffer == NULL || size < 20 + 1) {
+        return false;
+    }
+
+    println("AT+CCID");
+
+    return (readResponse(buffer, size, "+CCID: ") == GSMResponseOK) && (strlen(buffer) > 0);
+}
+
+// Gets the International Mobile Subscriber Identity
+// Should be provided with a buffer of at least 21 bytes.
+// Returns true if successful.
+bool Sodaq_Ublox::getIMSI(char* buffer, size_t size)
+{
+    if (buffer == NULL || size < 20 + 1) {
+        return false;
+    }
+
+    return (execCommand("AT+CIMI", buffer, size) == GSMResponseOK) && (strlen(buffer) > 0) && (atoll(buffer) > 0);
+}
+
+bool Sodaq_Ublox::getManufacturer(char* buffer, size_t size)
+{
+    if (buffer == NULL || size < 30 + 1) {
+        return false;
+    }
+
+    return execCommand("AT+CGMI", buffer, size);
+}
+
+bool Sodaq_Ublox::getModel(char* buffer, size_t size)
+{
+    if (buffer == NULL || size < 30 + 1) {
+        return false;
+    }
+
+    return execCommand("AT+CGMM", buffer, size);
+}
+
+bool Sodaq_Ublox::getFirmwareVersion(char* buffer, size_t size)
+{
+    if (buffer == NULL || size < 30 + 1) {
+        return false;
+    }
+
+    return execCommand("AT+CGMR", buffer, size);
+}
+
+bool Sodaq_Ublox::getFirmwareRevision(char* buffer, size_t size)
+{
+    if (buffer == NULL || size < 30 + 1) {
+        return false;
+    }
+
+    return execCommand("ATI9", buffer, size);
+}
+
 /******************************************************************************
 * RSSI and CSQ
 *****************************************************************************/

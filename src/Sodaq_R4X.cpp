@@ -474,32 +474,6 @@ bool Sodaq_R4X::bandMasktoStr(const uint64_t bandMask, char* str, size_t size)
     return result;
 }
 
-// Gets Integrated Circuit Card ID.
-// Should be provided with a buffer of at least 21 bytes.
-// Returns true if successful.
-bool Sodaq_R4X::getCCID(char* buffer, size_t size)
-{
-    if (buffer == NULL || size < 20 + 1) {
-        return false;
-    }
-
-    println("AT+CCID");
-
-    return (readResponse(buffer, size, "+CCID: ") == GSMResponseOK) && (strlen(buffer) > 0);
-}
-
-// Gets the International Mobile Subscriber Identity
-// Should be provided with a buffer of at least 21 bytes.
-// Returns true if successful.
-bool Sodaq_R4X::getIMSI(char* buffer, size_t size)
-{
-    if (buffer == NULL || size < 20 + 1) {
-        return false;
-    }
-
-    return (execCommand("AT+CIMI", buffer, size) == GSMResponseOK) && (strlen(buffer) > 0) && (atoll(buffer) > 0);
-}
-
 bool Sodaq_R4X::getOperatorInfo(uint16_t* mcc, uint16_t* mnc)
 {
     // Set mode to numeric format
@@ -639,42 +613,6 @@ bool Sodaq_R4X::getEpoch(uint32_t* epoch)
     }
 
     return false;
-}
-
-bool Sodaq_R4X::getManufacturer(char* buffer, size_t size)
-{
-    if (buffer == NULL || size < 30 + 1) {
-        return false;
-    }
-
-    return execCommand("AT+CGMI", buffer, size);
-}
-
-bool Sodaq_R4X::getModel(char* buffer, size_t size)
-{
-    if (buffer == NULL || size < 30 + 1) {
-        return false;
-    }
-
-    return execCommand("AT+CGMM", buffer, size);
-}
-
-bool Sodaq_R4X::getFirmwareVersion(char* buffer, size_t size)
-{
-    if (buffer == NULL || size < 30 + 1) {
-        return false;
-    }
-
-    return execCommand("AT+CGMR", buffer, size);
-}
-
-bool Sodaq_R4X::getFirmwareRevision(char* buffer, size_t size)
-{
-    if (buffer == NULL || size < 30 + 1) {
-        return false;
-    }
-
-    return execCommand("ATI9", buffer, size);
 }
 
 // Gets International Mobile Equipment Identity.

@@ -48,6 +48,11 @@ enum GSMResponseTypes {
     GSMResponseEmpty = 6,
 };
 
+enum Protocols {
+    TCP = 0,
+    UDP
+};
+
 class Sodaq_OnOffBee
 {
 public:
@@ -63,6 +68,10 @@ public:
     Sodaq_Ublox();
     virtual ~Sodaq_Ublox();
 
+    // Turns the modem on/off and returns true if successful.
+    virtual bool on() = 0;
+    virtual bool off() = 0;
+
     // Sets the optional "Diagnostics and Debug" print.
     void setDiag(Print &print) { _diagPrint = &print; }
     void setDiag(Print *print) { _diagPrint = print; }
@@ -72,8 +81,19 @@ public:
     void setInputBufferSize(size_t value) { _inputBufferSize = value; };
 
     /******************************************************************************
-    * RSSI and CSQ
-    *****************************************************************************/
+     * Generic Info
+     *****************************************************************************/
+    bool getCCID(char* buffer, size_t size);
+    bool getIMSI(char* buffer, size_t size);
+    bool getManufacturer(char* buffer, size_t size);
+    bool getModel(char* buffer, size_t size);
+    bool getFirmwareVersion(char* buffer, size_t size);
+    bool getFirmwareRevision(char* buffer, size_t size);
+    virtual bool getIMEI(char* buffer, size_t size) = 0;
+
+    /******************************************************************************
+     * RSSI and CSQ
+     *****************************************************************************/
 
     int8_t  convertCSQ2RSSI(uint8_t csq) const;
     uint8_t convertRSSI2CSQ(int8_t rssi) const;

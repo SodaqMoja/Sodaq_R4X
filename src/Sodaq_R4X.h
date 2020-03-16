@@ -74,11 +74,6 @@ enum MNOProfiles {
     STANDARD_EUROPE = 100
 };
 
-enum Protocols {
-    TCP = 0,
-    UDP
-};
-
 enum SimStatuses {
     SimStatusUnknown = 0,
     SimMissing,
@@ -146,16 +141,10 @@ public:
 #define R4X_DEFAULT_ATTACH_TIMEOUT      (10L * 60L * 1000)
     bool attachGprs(uint32_t timeout = R4X_DEFAULT_ATTACH_TIMEOUT);
     bool bandMasktoStr(const uint64_t bandMask, char* str, size_t size);
-    bool getCCID(char* buffer, size_t size);
-    bool getIMSI(char* buffer, size_t size);
     bool getOperatorInfo(uint16_t* mcc, uint16_t* mnc);
     bool getOperatorInfoString(char* buffer, size_t size);
     bool getCellInfo(uint16_t* tac, uint32_t* cid, uint16_t* urat);
     bool getEpoch(uint32_t* epoch);
-    bool getManufacturer(char* buffer, size_t size);
-    bool getModel(char* buffer, size_t size);
-    bool getFirmwareVersion(char* buffer, size_t size);
-    bool getFirmwareRevision(char* buffer, size_t size);
     bool getIMEI(char* buffer, size_t size);
 
     SimStatuses getSimStatus();
