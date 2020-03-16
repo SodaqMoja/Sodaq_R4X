@@ -56,9 +56,10 @@ enum GSMResponseTypes {
     GSMResponseNotFound = 0,
     GSMResponseOK = 1,
     GSMResponseError = 2,
-    GSMResponsePrompt = 3,
-    GSMResponseTimeout = 4,
-    GSMResponseEmpty = 5
+    GSMResponseSocketPrompt = 3,
+    GSMResponseFilePrompt = 4,
+    GSMResponseTimeout = 5,
+    GSMResponseEmpty = 6,
 };
 
 enum HttpRequestTypes {
@@ -371,9 +372,6 @@ private:
     bool   setNetworkLEDState();
     bool   isValidIPv4(const char* str);
 
-    GSMResponseTypes readResponse(char* outBuffer = NULL, size_t outMaxSize = 0, const char* prefix = NULL,
-                                  uint32_t timeout = R4X_DEFAULT_RESPONSE_TIMEOUT);
-
     void   reboot();
     bool   setSimPin(const char* simPin);
 #define R4X_DEFAULT_CSQ_TIMEOUT         (5L * 60L * 1000)
@@ -484,6 +482,13 @@ private:
 
     // Determine the current baudrate
     uint32_t determineBaudRate();
+
+    GSMResponseTypes readResponse(char* outBuffer = NULL, size_t outMaxSize = 0, const char* prefix = NULL,
+                                  uint32_t timeout = R4X_DEFAULT_RESPONSE_TIMEOUT);
+
+    bool waitForSocketPrompt(uint32_t timeout);
+    bool waitForFilePrompt(uint32_t timeout);
+    bool waitForPrompt(char c, uint32_t timeout);
 
     // Returns a character from the modem UART if read within _timeout ms or -1 otherwise.
     int timedRead(uint32_t timeout = 1000) const;

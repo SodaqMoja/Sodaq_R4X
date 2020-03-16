@@ -950,7 +950,7 @@ bool Sodaq_R4X::getRSSIAndBER(int8_t* rssi, uint8_t* ber)
 
 bool Sodaq_R4X::socketClose(uint8_t socketID, bool async)
 {
-    socketFlush(socketID);
+    (void)socketFlush(socketID);
     
     print("AT+USOCL=");
     print(socketID);
@@ -1043,12 +1043,17 @@ int Sodaq_R4X::socketCreate(uint16_t localPort, Protocols protocol)
 
 /**
  * Flush the bytes in the send buffer of a (TCP, UDP) socket
+ *
+ * \returns true all bytes flushed
+ * \returns true if socket closed
+ * \returns false if wrong answer from AT+USOCTL
+ * \returns false if timed out
  */
 bool Sodaq_R4X::socketFlush(uint8_t socketID, uint32_t timeout)
 {
     uint32_t start = millis();
 
-    while (isAlive() && (!is_timedout(start, timeout)) && (!_socketClosed[socketID])) {
+    while (!is_timedout(start, timeout) && !_socketClosed[socketID]) {
         print("AT+USOCTL=");
         print(socketID);
         println(",11");
@@ -1073,8 +1078,11 @@ bool Sodaq_R4X::socketFlush(uint8_t socketID, uint32_t timeout)
         else if (pendingBytes == 0){
             return true;
         }
-        
-        sodaq_wdt_safe_delay(300);
+
+        /*
+         * How often do we want to repeat?
+         */
+        sodaq_wdt_safe_delay(150);
     }
 
     /* FIXME In case the socket is closed or the modem did not respond anymore
@@ -1377,9 +1385,9 @@ size_t Sodaq_R4X::socketWrite(uint8_t socketID, const uint8_t* buffer, size_t si
     print(",");
     println(size);
 
-    /* Wait for the prompt
+    /* Wait for the prompt. It should come in immediately.
      */
-    if (readResponse() != GSMResponsePrompt) {
+    if (!waitForSocketPrompt(100)) {
         return 0;
     }
 
@@ -2358,7 +2366,7 @@ bool Sodaq_R4X::writeFile(const char* filename, const uint8_t* buffer, size_t si
     print("\",");
     println(size);
 
-    if (readResponse() != GSMResponsePrompt) {
+    if (waitForFilePrompt(250)) {
         return false;
     }
 
@@ -2793,92 +2801,6 @@ bool Sodaq_R4X::isValidIPv4(const char* str)
     return true;
 }
 
-/**
- * 1. check echo
- * 2. check ok
- * 3. check error
- * 4. if response prefix is not empty, check response prefix, append if multiline
- * 5. check URC, if handled => continue
- * 6. if response prefix is empty, return the whole line return line buffer, append if multiline
-*/
-GSMResponseTypes Sodaq_R4X::readResponse(char* outBuffer, size_t outMaxSize, const char* prefix, uint32_t timeout)
-{
-    bool usePrefix    = prefix != NULL && prefix[0] != 0;
-    bool useOutBuffer = outBuffer != NULL && outMaxSize > 0;
-
-    uint32_t from = NOW;
-
-    size_t outSize = 0;
-
-    if (outBuffer) {
-        outBuffer[0] = 0;
-    }
-
-    while (!is_timedout(from, timeout)) {
-        int count = readLn(_inputBuffer, _inputBufferSize, 250); // 250ms, how many bytes at which baudrate?
-        sodaq_wdt_reset();
-
-        if (count <= 0) {
-            continue;
-        }
-
-        debugPrint("<< ");
-        debugPrintln(_inputBuffer);
-
-        if (startsWith(STR_AT, _inputBuffer)) {
-            continue; // skip echoed back command
-        }
-
-        if (startsWith(STR_RESPONSE_OK, _inputBuffer)) {
-            return GSMResponseOK;
-        }
-
-        if (startsWith(STR_RESPONSE_ERROR, _inputBuffer) ||
-                startsWith(STR_RESPONSE_CME_ERROR, _inputBuffer) ||
-                startsWith(STR_RESPONSE_CMS_ERROR, _inputBuffer)) {
-            return GSMResponseError;
-        }
-
-        if ((_inputBuffer[0] == STR_RESPONSE_SOCKET_PROMPT) || (_inputBuffer[0] == STR_RESPONSE_FILE_PROMPT)) {
-            return GSMResponsePrompt;
-        }
-
-        bool hasPrefix = usePrefix && useOutBuffer && startsWith(prefix, _inputBuffer);
-
-        if (!hasPrefix && checkURC(_inputBuffer)) {
-            continue;
-        }
-
-        if (hasPrefix || (!usePrefix && useOutBuffer)) {
-            /* Notice that the minus one is to guarantee that there is space to
-             * add a NUL byte at the end.
-             */
-            if (outSize > 0 && outSize < outMaxSize - 1) {
-                outBuffer[outSize++] = LF;
-            }
-
-            if (outSize < outMaxSize - 1) {
-                char* inBuffer = _inputBuffer;
-                if (hasPrefix) {
-                    int i = strlen(prefix);
-                    count -= i;
-                    inBuffer += i;
-                }
-                if (outSize + count > outMaxSize - 1) {
-                    count = outMaxSize - 1 - outSize;
-                }
-                memcpy(outBuffer + outSize, inBuffer, count);
-                outSize += count;
-                outBuffer[outSize] = 0;
-            }
-        }
-    }
-
-    debugPrintln("[readResponse] timed out");
-
-    return GSMResponseTimeout;
-}
-
 void Sodaq_R4X::reboot()
 {
     debugPrintln("[reboot]");
@@ -3144,6 +3066,158 @@ void Sodaq_R4X::initBuffer()
         _inputBuffer = static_cast<char*>(malloc(_inputBufferSize));
         _isBufferInitialized = true;
     }
+}
+
+/**
+ * 1. check echo
+ * 2. check ok
+ * 3. check error
+ * 4. if response prefix is not empty, check response prefix, append if multiline
+ * 5. check URC, if handled => continue
+ * 6. if response prefix is empty, return the whole line return line buffer, append if multiline
+*/
+GSMResponseTypes Sodaq_R4X::readResponse(char* outBuffer, size_t outMaxSize, const char* prefix, uint32_t timeout)
+{
+    bool usePrefix    = prefix != NULL && prefix[0] != 0;
+    bool useOutBuffer = outBuffer != NULL && outMaxSize > 0;
+
+    uint32_t from = NOW;
+
+    size_t outSize = 0;
+
+    if (outBuffer) {
+        outBuffer[0] = 0;
+    }
+
+    //debugPrintln(String("[readResponse] timeout: ") + timeout);
+    while (!is_timedout(from, timeout)) {
+        int count = readLn(_inputBuffer, _inputBufferSize, 250); // 250ms, how many bytes at which baudrate?
+        sodaq_wdt_reset();
+
+        if (count <= 0) {
+            continue;
+        }
+
+        debugPrint("<< ");
+        debugPrintln(_inputBuffer);
+
+        if (startsWith(STR_AT, _inputBuffer)) {
+            continue; // skip echoed back command
+        }
+
+        if (startsWith(STR_RESPONSE_OK, _inputBuffer)) {
+            return GSMResponseOK;
+        }
+
+        if (startsWith(STR_RESPONSE_ERROR, _inputBuffer) ||
+                startsWith(STR_RESPONSE_CME_ERROR, _inputBuffer) ||
+                startsWith(STR_RESPONSE_CMS_ERROR, _inputBuffer)) {
+            return GSMResponseError;
+        }
+
+        if (_inputBuffer[0] == STR_RESPONSE_SOCKET_PROMPT) {
+            return GSMResponseSocketPrompt;
+        }
+
+        if (_inputBuffer[0] == STR_RESPONSE_FILE_PROMPT) {
+            return GSMResponseFilePrompt;
+        }
+
+        bool hasPrefix = usePrefix && useOutBuffer && startsWith(prefix, _inputBuffer);
+
+        if (!hasPrefix && checkURC(_inputBuffer)) {
+            continue;
+        }
+
+        if (hasPrefix || (!usePrefix && useOutBuffer)) {
+            /* Notice that the minus one is to guarantee that there is space to
+             * add a NUL byte at the end.
+             */
+            if (outSize > 0 && outSize < outMaxSize - 1) {
+                outBuffer[outSize++] = LF;
+            }
+
+            if (outSize < outMaxSize - 1) {
+                char* inBuffer = _inputBuffer;
+                if (hasPrefix) {
+                    int i = strlen(prefix);
+                    count -= i;
+                    inBuffer += i;
+                }
+                if (outSize + count > outMaxSize - 1) {
+                    count = outMaxSize - 1 - outSize;
+                }
+                memcpy(outBuffer + outSize, inBuffer, count);
+                outSize += count;
+                outBuffer[outSize] = 0;
+            }
+        }
+    }
+
+    debugPrintln("[readResponse] timed out");
+
+    return GSMResponseTimeout;
+}
+
+/**
+ * Wait for the Socket Prompt '@'
+ */
+bool Sodaq_R4X::waitForSocketPrompt(uint32_t timeout)
+{
+    return waitForPrompt(STR_RESPONSE_SOCKET_PROMPT, timeout);
+}
+
+/**
+ * Wait for the Socket Prompt '>'
+ */
+bool Sodaq_R4X::waitForFilePrompt(uint32_t timeout)
+{
+    return waitForPrompt(STR_RESPONSE_FILE_PROMPT, timeout);
+}
+
+/**
+ * Wait for a prompt
+ *
+ * Most likely there is a <CR><LF> first.
+ */
+bool Sodaq_R4X::waitForPrompt(char prompt, uint32_t timeout)
+{
+    uint32_t start_ts = millis();
+    bool at_bol = true;
+    bool retval = false;
+    bool done_diag = false;
+
+    do {
+        int c = _modemUART->read();
+        if (c < 0) {
+            continue;
+        }
+
+        if (c == '\r') {
+            at_bol = true;
+        }
+        else if (c == '\n') {
+            at_bol = true;
+            debugPrintln();
+        }
+        else {
+            if (at_bol) {
+                debugPrint(">> ");
+                at_bol = false;
+                done_diag = true;
+            }
+            debugPrint((char)c);
+        }
+        if (c == prompt) {
+            retval = true;
+            break;
+        }
+    } while (!is_timedout(start_ts, timeout));
+
+    if (done_diag && !at_bol) {
+        debugPrintln();
+    }
+    return retval;
 }
 
 // Returns a character from the modem stream if read within _timeout ms or -1 otherwise.
