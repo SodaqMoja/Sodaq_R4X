@@ -730,12 +730,6 @@ SimStatuses Sodaq_R4X::getSimStatus()
     return SimMissing;
 }
 
-// Returns true if the modem replies to "AT" commands without timing out.
-bool Sodaq_R4X::isAlive()
-{
-    return execCommand("AT", 450);
-}
-
 // Returns true if the modem is attached to the network and has an activated data connection.
 bool Sodaq_R4X::isAttached()
 {

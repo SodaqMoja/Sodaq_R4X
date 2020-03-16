@@ -106,6 +106,12 @@ bool Sodaq_Ublox::isOn() const
     return true;
 }
 
+// Returns true if the modem replies to "AT" commands without timing out.
+bool Sodaq_Ublox::isAlive()
+{
+    return execCommand("AT", 450);
+}
+
 /******************************************************************************
 * RSSI and CSQ
 *****************************************************************************/

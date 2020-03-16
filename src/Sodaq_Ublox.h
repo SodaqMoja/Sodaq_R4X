@@ -113,6 +113,9 @@ protected:
     // Returns true if the modem is on.
     bool isOn() const;
 
+    // Returns true if the modem replies to "AT" commands without timing out.
+    bool isAlive();
+
 #define SODAQ_UBLOX_DEFAULT_CSQ_TIMEOUT         (5L * 60L * 1000)
     bool   waitForSignalQuality(uint32_t timeout = SODAQ_UBLOX_DEFAULT_CSQ_TIMEOUT);
 
