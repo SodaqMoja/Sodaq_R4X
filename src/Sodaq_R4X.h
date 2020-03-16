@@ -32,8 +32,11 @@ POSSIBILITY OF SUCH DAMAGE.
 #ifndef _Sodaq_R4X_h
 #define _Sodaq_R4X_h
 
+#include <Arduino.h>
+
+#include "Sodaq_Ublox.h"
+
 #define SODAQ_MAX_SEND_MESSAGE_SIZE     512
-#define SODAQ_R4X_DEFAULT_CID           1
 #define SODAQ_R4X_MAX_SOCKET_BUFFER     1024
 
 #define SODAQ_R4X_LTEM_URAT             "7"
@@ -44,13 +47,9 @@ POSSIBILITY OF SUCH DAMAGE.
 #define SODAQ_R4X_NBIOT_2G_URAT         "8,9"
 #define SODAQ_R4X_LTEM_NBIOT_2G_URAT    "7,8,9"
 
-#define DEFAULT_URAT                    SODAQ_R4X_NBIOT_URAT
-#define AUTOMATIC_OPERATOR              "0"
+#define SODAQ_R4X_DEFAULT_URAT          SODAQ_R4X_NBIOT_URAT
+#define SODAQ_R4X_AUTOMATIC_OPERATOR    "0"
 #define BAND_MASK_UNCHANGED             0
-
-#include <Arduino.h>
-
-#include "Sodaq_Ublox.h"
 
 enum HttpRequestTypes {
     POST = 0,
@@ -61,7 +60,26 @@ enum HttpRequestTypes {
     HttpRequestTypesMAX
 };
 
-enum MNOProfiles {
+/**
+ * Values for MNO profile (AT+UMNOPROF)
+ * • 0: Undefined
+ * • 1: SIM ICCID select
+ * • 2: AT&T
+ * • 3: Verizon
+ * • 4: Telstra
+ * • 5: T-Mobile US
+ * • 6: China Telecom
+ * • 8: Sprint
+ * • 19: Vodafone
+ * • 20: NTT DoCoMo
+ * • 21: Telus
+ * • 28: SoftBank
+ * • 31: Deutsche Telekom
+ * • 32: US Cellular
+ * • 39: SKT
+ * • 100: standard Europe
+ */
+enum MNOProfile {
     SWD_DEFAULT     = 0,
     SIM_ICCID       = 1,
     ATT             = 2,
@@ -70,7 +88,13 @@ enum MNOProfiles {
     T_MOBILE_US     = 5,
     CHINA_TELECOM   = 6,
     VODAFONE        = 19,
-    STANDARD_EUROPE = 100
+    NTT_DOCOMO      = 20,
+    TELUS           = 21,
+    SOFTBANK        = 28,
+    DEUTSCHE_TELEKOM = 31,
+    US_CELLULAR     = 32,
+    SKT             = 39,
+    STANDARD_EUROPE = 100,
 };
 
 enum SimStatuses {
@@ -114,7 +138,7 @@ public:
     Sodaq_R4X();
 
     // Initializes the modem instance. Sets the modem UART and the on-off power pins.
-    void init(Sodaq_OnOffBee* onoff, Uart& uart, uint32_t baud, uint8_t cid = SODAQ_R4X_DEFAULT_CID);
+    void init(Sodaq_OnOffBee* onoff, Uart& uart, uint32_t baud);
 
     // Turns the modem on/off and returns true if successful.
     bool on();
@@ -126,11 +150,17 @@ public:
 
     bool connect();
     // Turns on and initializes the modem, then connects to the network and activates the data connection.
-    bool connect(const char* apn, const char* urat = DEFAULT_URAT,
+    bool connect(const char* apn, const char* urat = SODAQ_R4X_DEFAULT_URAT,
         const char* bandMask = BAND_MASK_UNCHANGED);
-    bool connect(const char* apn, const char* urat, uint8_t mnoProfile,
-        const char* operatorSelect = AUTOMATIC_OPERATOR, const char* bandMaskLTE = BAND_MASK_UNCHANGED, 
+    bool connect(const char* apn, const char* urat, MNOProfile mnoProfile,
+        const char* operatorSelect = SODAQ_R4X_AUTOMATIC_OPERATOR,
+        const char* bandMaskLTE = BAND_MASK_UNCHANGED,
         const char* bandMaskNB = BAND_MASK_UNCHANGED);
+    void setUrat(const char* urat) { _urat = urat; }
+    void setMnoProfile(MNOProfile prof) { _mnoProfile = prof; }
+    void setOperator(const char* opr) { _opr = opr; }
+    void setBandMaskLTE(const char* bandMask) { _bandMaskLTE = bandMask; }
+    void setBandMaskNB(const char* bandMask) { _bandMaskNB = bandMask; }
 
     // Disconnects the modem from the network.
     bool disconnect();
@@ -157,7 +187,8 @@ public:
     bool isDefinedIP4();
 
     void purgeAllResponsesRead();
-    bool setApn(const char* apn);
+
+    bool loadApn(const char* apn);
     bool setIndicationsActive(bool on);
     void setNetworkStatusLED(bool on) { _networkStatusLED = on; };
     void setPin(const char* pin);
@@ -296,13 +327,14 @@ protected:
     uint32_t getNthValidBaudRate(size_t nth);
 
 private:
+    bool   checkURC(const char* buffer);
+
     bool   checkApn(const char* requiredAPN);
     bool   checkBandMasks(const char* bandMaskLTE, const char* bandMaskNB);
     bool   checkCFUN();
     bool   checkCOPS(const char* requiredOperator, const char* requiredURAT);
-    bool   checkProfile(const uint8_t requiredProfile);
+    bool   checkMnoProfile(MNOProfile requiredProfile);
     bool   checkUrat(const char* requiredURAT);
-    bool   checkURC(const char* buffer);
     bool   doSIMcheck();
     bool   setNetworkLEDState();
 
@@ -314,14 +346,12 @@ private:
      * Network Stuff
      *****************************************************************************/
 
-    uint8_t     _cid;
     uint32_t    _httpGetHeaderSize;
     tribool_t   _httpRequestSuccessBit[HttpRequestTypesMAX];
     int8_t      _mqttLoginResult;
     int16_t     _mqttPendingMessages;
     int8_t      _mqttSubscribeReason;
     bool        _networkStatusLED;
-    char*       _pin;
 
     PublishHandlerPtr _mqttPublishHandler = NULL;
 
@@ -340,6 +370,12 @@ private:
     // Power Saving Mode (PSM)
     bool _psm;
 
+    char*       _pin;
+    const char* _urat;
+    const char* _opr;
+    MNOProfile  _mnoProfile;
+    const char* _bandMaskLTE;
+    const char* _bandMaskNB;
     uint32_t    _cgact_timeout;
     uint32_t    _cops_timeout;
 

@@ -77,6 +77,9 @@ Sodaq_Ublox::Sodaq_Ublox()
     _minRSSI             = -113;  // dBm
 
     _startOn = 0;
+    _apn = 0;
+    _cid = 0;
+
     _connect_timeout = DEFAULT_CONNECT_TIMEOUT;
     _disconnect_timeout = DEFAULT_DISCONNECT_TIMEOUT;
 

@@ -41,6 +41,8 @@ POSSIBILITY OF SUCH DAMAGE.
 #define REBOOT_TIMEOUT          15000
 #define POWER_OFF_DELAY         5000
 
+#define SODAQ_R4X_DEFAULT_CID           1
+
 #define DEFAULT_CGACT_TIMEOUT           (150L * 1000)
 #define DEFAULT_COPS_TIMEOUT            (180L * 1000)
 #define DEFAULT_UMQTT_TIMEOUT           (60L * 1000)
@@ -107,10 +109,16 @@ Sodaq_R4X::Sodaq_R4X() : Sodaq_Ublox()
     _mqttPendingMessages = -1;
     _mqttSubscribeReason = -1;
     _networkStatusLED    = 0;
-    _pin                 = 0;
 
-    _cid                 = 0;
-    _httpGetHeaderSize   = 0;
+    _pin = 0;
+    _cid = SODAQ_R4X_DEFAULT_CID;
+    _urat = SODAQ_R4X_DEFAULT_URAT;
+    _opr = SODAQ_R4X_AUTOMATIC_OPERATOR;
+    _mnoProfile = SIM_ICCID;
+    _bandMaskLTE = BAND_MASK_UNCHANGED;
+    _bandMaskNB = BAND_MASK_UNCHANGED;
+
+    _httpGetHeaderSize = 0;
 
     /*
      * Assume all socket are closed
@@ -126,7 +134,7 @@ Sodaq_R4X::Sodaq_R4X() : Sodaq_Ublox()
 }
 
 // Initializes the modem instance. Sets the modem UART and the on-off power pins.
-void Sodaq_R4X::init(Sodaq_OnOffBee* onoff, Uart& uart, uint32_t baud, uint8_t cid)
+void Sodaq_R4X::init(Sodaq_OnOffBee* onoff, Uart& uart, uint32_t baud)
 {
     debugPrintln("[init] started.");
 
@@ -135,8 +143,6 @@ void Sodaq_R4X::init(Sodaq_OnOffBee* onoff, Uart& uart, uint32_t baud, uint8_t c
     initUART(uart, baud);
 
     setOnOff(onoff);
-
-    _cid   = cid;
 }
 
 // Turns the modem on and returns true if successful.
@@ -274,8 +280,27 @@ bool Sodaq_R4X::enableHexMode()
     return _hexMode;
 }
 
-bool Sodaq_R4X::connect(const char* apn, const char* urat, uint8_t mnoProfile,
-    const char* operatorSelect, const char* bandMaskLTE, const char* bandMaskNB)
+bool Sodaq_R4X::connect(const char* apn, const char* urat, MNOProfile mnoProfile,
+    const char* opr, const char* bandMaskLTE, const char* bandMaskNB)
+{
+    setApn(apn);
+    setUrat(urat);
+    if (opr == 0) {
+        opr = SODAQ_R4X_AUTOMATIC_OPERATOR;
+    }
+    setMnoProfile(mnoProfile);
+    setOperator(opr);
+    setBandMaskLTE(bandMaskLTE);
+    setBandMaskNB(bandMaskNB);
+    return connect();
+}
+
+bool Sodaq_R4X::connect(const char* apn, const char* urat, const char* bandMask)
+{
+    return connect(apn, urat, SIM_ICCID, SODAQ_R4X_AUTOMATIC_OPERATOR, BAND_MASK_UNCHANGED, bandMask);
+}
+
+bool Sodaq_R4X::connect()
 {
     debugPrintln("[R4X connect]");
 
@@ -310,18 +335,18 @@ bool Sodaq_R4X::connect(const char* apn, const char* urat, uint8_t mnoProfile,
         return false;
     }
 
-    if (!checkProfile(mnoProfile)) {
+    if (!checkMnoProfile(_mnoProfile)) {
         return false;
     }
 
-    if (urat == 0) {
-        urat = DEFAULT_URAT;
+    if (_urat == 0) {
+        _urat = SODAQ_R4X_DEFAULT_URAT;
     }
-    if (!checkUrat(urat)) {
+    if (!checkUrat(_urat)) {
         return false;
     }
 
-    if (!checkBandMasks(bandMaskLTE, bandMaskNB)) {
+    if (!checkBandMasks(_bandMaskLTE, _bandMaskNB)) {
         return false;
     }
     /*
@@ -333,7 +358,7 @@ bool Sodaq_R4X::connect(const char* apn, const char* urat, uint8_t mnoProfile,
         return false;
     }
 
-    if (!checkCOPS(operatorSelect != 0 ? operatorSelect : AUTOMATIC_OPERATOR, urat)) {
+    if (!checkCOPS(_opr, _urat)) {
         return false;
     }
     elapsed = millis() - start_ts;
@@ -342,7 +367,7 @@ bool Sodaq_R4X::connect(const char* apn, const char* urat, uint8_t mnoProfile,
         return false;
     }
 
-    if (!checkApn(apn)) {
+    if (!checkApn(_apn)) {
         return false;
     }
     elapsed = millis() - start_ts;
@@ -383,11 +408,6 @@ bool Sodaq_R4X::connect(const char* apn, const char* urat, uint8_t mnoProfile,
     }
 
     return doSIMcheck();
-}
-
-bool Sodaq_R4X::connect(const char* apn, const char* urat, const char* bandMask)
-{
-    return connect(apn, urat, SIM_ICCID, AUTOMATIC_OPERATOR, BAND_MASK_UNCHANGED, bandMask);
 }
 
 // Disconnects the modem from the network.
@@ -698,7 +718,7 @@ void Sodaq_R4X::purgeAllResponsesRead()
     while ((readResponse(NULL, 0, NULL, 1000) != GSMResponseTimeout) && !is_timedout(start, 2000)) {}
 }
 
-bool Sodaq_R4X::setApn(const char* apn)
+bool Sodaq_R4X::loadApn(const char* apn)
 {
     print("AT+CGDCONT=");
     print(_cid);
@@ -2191,7 +2211,7 @@ bool Sodaq_R4X::checkApn(const char* requiredAPN)
         }
     }
 
-    return setApn(requiredAPN);
+    return loadApn(requiredAPN);
 }
 
 bool Sodaq_R4X::checkBandMasks(const char* bandMaskLTE, const char* bandMaskNB)
@@ -2268,7 +2288,8 @@ bool Sodaq_R4X::checkCFUN()
 bool Sodaq_R4X::checkCOPS(const char* requiredOperator, const char* requiredURAT)
 {
     // If auto operator and not NB1, always send the command
-    if ((strcmp(requiredOperator, AUTOMATIC_OPERATOR) == 0) && (strcmp(requiredURAT, SODAQ_R4X_NBIOT_URAT) != 0)){
+    if ((strcmp(requiredOperator, SODAQ_R4X_AUTOMATIC_OPERATOR) == 0) &&
+            (strcmp(requiredURAT, SODAQ_R4X_NBIOT_URAT) != 0)){
         return execCommand("AT+COPS=0,2", _cops_timeout);
     }
 
@@ -2285,10 +2306,11 @@ bool Sodaq_R4X::checkCOPS(const char* requiredOperator, const char* requiredURAT
         return false;
     }
 
-    if (strcmp(requiredOperator, AUTOMATIC_OPERATOR) == 0) {
+    if (strcmp(requiredOperator, SODAQ_R4X_AUTOMATIC_OPERATOR) == 0) {
         return ((strncmp(buffer, "0", 1) == 0) || execCommand("AT+COPS=0,2", _cops_timeout));
     }
-    else if ((strncmp(buffer, "1", 1) == 0) && (strncmp(buffer + 5, requiredOperator, strlen(requiredOperator)) == 0)) {
+    else if ((strncmp(buffer, "1", 1) == 0) &&
+            (strncmp(buffer + 5, requiredOperator, strlen(requiredOperator)) == 0)) {
         return true;
     }
     else {
@@ -2300,7 +2322,17 @@ bool Sodaq_R4X::checkCOPS(const char* requiredOperator, const char* requiredURAT
     }
 }
 
-bool Sodaq_R4X::checkProfile(const uint8_t requiredProfile)
+/**
+ * Check and set the MNO (Mobile Network Operator) profile
+ *
+ * The manual describes it as follows:
+ * "Follow this procedure to properly set up the configuration:
+ *  • Deregister the module from the network (perform a AT+CFUN=0 or
+ *    AT+CFUN=4 cycle or issue the AT+COPS=2 command)
+ *  • Issue AT+UMNOPROF=<MNO>
+ *  • Reboot the module (AT+CFUN=15) in order to apply the new configuration
+ */
+bool Sodaq_R4X::checkMnoProfile(MNOProfile requiredProfile)
 {
     println("AT+UMNOPROF?");
 

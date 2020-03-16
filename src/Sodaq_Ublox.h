@@ -84,7 +84,10 @@ public:
      *****************************************************************************/
 
     virtual bool connect() = 0;
+    void    setCid(uint8_t cid) { _cid = cid; }
     void    setConnectTimeout(uint32_t t) { _connect_timeout = t; }
+
+    void    setApn(const char* apn) { _apn = apn; }
 
     /******************************************************************************
     * Sockets
@@ -111,6 +114,7 @@ public:
     /******************************************************************************
      * Generic Info
      *****************************************************************************/
+
     bool getCCID(char* buffer, size_t size);
     bool getIMSI(char* buffer, size_t size);
     bool getManufacturer(char* buffer, size_t size);
@@ -258,21 +262,24 @@ protected:
     // Determine the current baudrate
     uint32_t determineBaudRate();
     virtual uint32_t getNthValidBaudRate(size_t nth) = 0;
+    bool isValidSocketID(int id) { return id >= 0 && id < SODAQ_UBLOX_SOCKET_COUNT; }
 
     // The (optional) stream to show debug information.
-    Print* _diagPrint;
+    Print*      _diagPrint;
 
     // The on-off pin power controller object.
     Sodaq_OnOffBee* _onoff;
 
     // The UART that communicates with the device.
-    Uart* _modemUART;
+    Uart*       _modemUART;
 
     // The requested baudrate
-    uint32_t _baudRate;
+    uint32_t    _baudRate;
 
     // Keep track when connect started. Use this to record various status changes.
-    uint32_t _startOn;
+    uint32_t    _startOn;
+    const char* _apn;
+    uint8_t     _cid;
 
     uint32_t    _connect_timeout;
     uint32_t    _disconnect_timeout;
