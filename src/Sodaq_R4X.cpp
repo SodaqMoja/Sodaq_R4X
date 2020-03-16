@@ -3196,7 +3196,6 @@ bool Sodaq_R4X::waitForPrompt(char prompt, uint32_t timeout)
         }
         else if (c == '\n') {
             at_bol = true;
-            debugPrintln();
         }
         else {
             if (at_bol) {
