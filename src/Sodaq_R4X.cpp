@@ -2382,12 +2382,18 @@ bool Sodaq_R4X::writeFile(const char* filename, const uint8_t* buffer, size_t si
 * Private
 *****************************************************************************/
 
+/**
+ * Check APN
+ *
+ * \returns 0 APN is correct, IP address is 0.0.0.0
+ * \returns 1 APN is correct, IP address is other than 0.0.0.0
+ * \returns -1 an error occurred
+ */
 int8_t Sodaq_R4X::checkApn(const char* requiredAPN)
 {
-    println("AT+CGDCONT?");
-
     char buffer[256];
 
+    println("AT+CGDCONT?");
     if (readResponse(buffer, sizeof(buffer), "+CGDCONT: ") != GSMResponseOK) {
         return -1;
     }
@@ -2396,9 +2402,12 @@ int8_t Sodaq_R4X::checkApn(const char* requiredAPN)
         char apn[64];
         char ip[32];
 
-        if (sscanf(buffer + 6, ",\"%[^\"]\",\"%[^\"]\",0,0,0,0", apn, ip) != 2) { return -1; }
+        if (sscanf(buffer + 6, ",\"%[^\"]\",\"%[^\"]\",0,0,0,0", apn, ip) != 2) {
+            return -1;
+        }
 
         if (strcmp(apn, requiredAPN) == 0) {
+            // TODO Why not just strcmp(ip, "0.0.0.0") == 0 => return 0 ??
             if (strlen(ip) >= 7 && strcmp(ip, "0.0.0.0") != 0) { 
                 return 1; 
             }
