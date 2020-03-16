@@ -31,12 +31,10 @@ POSSIBILITY OF SUCH DAMAGE.
 
 #include "Sodaq_R4X.h"
 #include <Sodaq_wdt.h>
-#include "time.h"
 
 //#define DEBUG
 
 #define EPOCH_TIME_OFF          946684800  /* This is 1st January 2000, 00:00:00 in epoch time */
-#define EPOCH_TIME_YEAR_OFF     100        /* years since 1900 */
 #define POWER_ON_DELAY          2000
 #define ATTACH_NEED_REBOOT      40000
 #define REBOOT_DELAY            1250
@@ -52,21 +50,13 @@ POSSIBILITY OF SUCH DAMAGE.
 #define DEFAULT_SOCKET_WRITE_TIMEOUT    (120L * 1000)
 #define DEFAULT_UMQTT_TIMEOUT           (60L * 1000)
 
-#define SODAQ_GSM_TERMINATOR "\r\n"
-#define SODAQ_GSM_MODEM_DEFAULT_INPUT_BUFFER_SIZE 1024
-#define SODAQ_GSM_TERMINATOR_LEN (sizeof(SODAQ_GSM_TERMINATOR) - 1)
-
 /**
  * SARA R4X GPIO pin for network status indicator
  */
 #define NETWORK_STATUS_GPIO_ID     16
 
 #define DEBUG_STR_ERROR            "[ERROR]: "
-#define STR_AT                     "AT"
-#define STR_RESPONSE_OK            "OK"
-#define STR_RESPONSE_ERROR         "ERROR"
-#define STR_RESPONSE_CME_ERROR     "+CME ERROR:"
-#define STR_RESPONSE_CMS_ERROR     "+CMS ERROR:"
+
 #define STR_RESPONSE_SOCKET_PROMPT '@'
 #define STR_RESPONSE_FILE_PROMPT   '>'
 
@@ -99,8 +89,6 @@ POSSIBILITY OF SUCH DAMAGE.
 #define CR '\r'
 #define LF '\n'
 
-#define NOW (uint32_t)millis()
-
 static inline bool is_timedout(uint32_t from, uint32_t nr_ms) __attribute__((always_inline));
 static inline bool is_timedout(uint32_t from, uint32_t nr_ms) { return (millis() - from) > nr_ms; }
 
@@ -117,23 +105,16 @@ static uint8_t httpRequestMapping[] = {
 * Main
 *****************************************************************************/
 
-Sodaq_R4X::Sodaq_R4X() :
-    _modemUART(0),
-    _baudRate(0),
-    _diagPrint(0),
-    _appendCommand(false),
-    _echoOff(false),
-    _hexMode(false),
-    _psm(true),
-    _CSQtime(0),
-    _startOn(0)
+Sodaq_R4X::Sodaq_R4X() : Sodaq_Ublox()
 {
-    _isBufferInitialized = false;
-    _inputBuffer         = 0;
-    _inputBufferSize     = SODAQ_GSM_MODEM_DEFAULT_INPUT_BUFFER_SIZE;
+    _echoOff = false;
+    _hexMode = false;
+    _psm = true;
+    _CSQtime = 0;
+    _startOn = 0;
+
     _lastRSSI            = 0;
     _minRSSI             = -113;  // dBm
-    _onoff               = 0;
     _mqttLoginResult     = -1;
     _mqttPendingMessages = -1;
     _mqttSubscribeReason = -1;
@@ -168,10 +149,10 @@ void Sodaq_R4X::init(Sodaq_OnOffBee* onoff, Uart& uart, uint32_t baud, uint8_t c
 
     initBuffer(); // safe to call multiple times
 
-    _modemUART = &uart;
-    _baudRate = baud;
+    initUART(uart, baud);
 
-    _onoff = onoff;
+    setOnOff(onoff);
+
     _cid   = cid;
 }
 
@@ -783,7 +764,7 @@ bool Sodaq_R4X::execCommand(const String& command, char* buffer, size_t size, ui
 // Returns true if the modem replies to "AT" commands without timing out.
 bool Sodaq_R4X::isAlive()
 {
-    return execCommand(STR_AT, 450);
+    return execCommand("AT", 450);
 }
 
 // Returns true if the modem is attached to the network and has an activated data connection.
@@ -1398,8 +1379,7 @@ size_t Sodaq_R4X::socketWrite(uint8_t socketID, const uint8_t* buffer, size_t si
     }
     /* Indicate that we need a new diag prolog (">>") next time we send a command
      */
-    _appendCommand = false;
-    debugPrintln();                     // ???? to close the diag line for the previous nibbles
+    dbprintln();
 
     char outBuffer[64];
     if (readResponse(outBuffer, sizeof(outBuffer), "+USOWR: ", _socket_write_timeout) != GSMResponseOK) {
@@ -1468,13 +1448,17 @@ void Sodaq_R4X::mqttLoop()
 {
     if (_modemUART->available()) {
 
-        int count = readLn(_inputBuffer, _inputBufferSize, 250); // 250ms, how many bytes at which baudrate?
+        int count = readLn(250);        // 250ms, how many bytes at which baudrate?
 
         if (count > 0) {
+#if 0
+            /* TODO
+             */
             debugPrint("<< ");
             debugPrintln(_inputBuffer);
 
             checkURC(_inputBuffer);
+#endif
         }
     }
 }
@@ -1554,15 +1538,15 @@ uint16_t Sodaq_R4X::mqttReadMessages(char* buffer, size_t size, uint32_t timeout
     char* messageStart = 0;
 
     while (messages < _mqttPendingMessages && !is_timedout(startTime, timeout)) {
-        int count = readLn(_inputBuffer, _inputBufferSize, 250);
+        int count = readLn(250);
         sodaq_wdt_reset();
 
         if (count <= 0) {
             continue;
         }
 
-        bool isTopic = startsWith("Topic:", _inputBuffer);
-        bool isMessage = startsWith("Msg:", _inputBuffer);
+        bool isTopic = startsWith("Topic:", getInputBuffer());
+        bool isMessage = startsWith("Msg:", getInputBuffer());
 
         if (isTopic || isMessage) {
             // init publish msg vars when seeing a topic (topic comes first)
@@ -1587,7 +1571,7 @@ uint16_t Sodaq_R4X::mqttReadMessages(char* buffer, size_t size, uint32_t timeout
                 count = size - 1 - outSize;
             }
 
-            memcpy(buffer + outSize, _inputBuffer + headerSize, count);
+            memcpy(buffer + outSize, getInputBuffer() + headerSize, count);
             if (isTopic) {
                 topicStart = buffer + outSize;
             }
@@ -2242,6 +2226,11 @@ size_t Sodaq_R4X::readFile(const char* filename, uint8_t* buffer, size_t size)
     // to be able to also read terminator characters within files
     char checkChar = 0;
 
+    /* TODO */
+#if 1
+    size_t len = 0;
+    return 0;
+#else
     // reply identifier
     size_t len = readBytesUntil(' ', _inputBuffer, _inputBufferSize);
     if (len == 0 || strstr(_inputBuffer, "+URDFILE:") == NULL) {
@@ -2264,6 +2253,7 @@ size_t Sodaq_R4X::readFile(const char* filename, uint8_t* buffer, size_t size)
         debugPrintln(DEBUG_STR_ERROR "Size error!");
         return 0;
     }
+#endif
 
     // opening quote character
     checkChar = timedRead();
@@ -2305,6 +2295,11 @@ size_t Sodaq_R4X::readFilePartial(const char* filename, uint8_t* buffer, size_t 
     print(',');
     println(size);
 
+#if 1
+    size_t len = 0;
+    uint32_t blocksize = 0;
+    return 0;
+#else
     // reply identifier
     //   +URDBLOCK: http_last_response_0,86,"..."
     // where 86 is an example of the size
@@ -2329,6 +2324,7 @@ size_t Sodaq_R4X::readFilePartial(const char* filename, uint8_t* buffer, size_t 
         debugPrintln(DEBUG_STR_ERROR "Size error!");
         return 0;
     }
+#endif
 
     // opening quote character
     char quote = timedRead();
@@ -2579,7 +2575,7 @@ bool Sodaq_R4X::checkUrat(const char* requiredURAT)
     return true;
 }
 
-bool Sodaq_R4X::checkURC(char* buffer)
+bool Sodaq_R4X::checkURC(const char* buffer)
 {
     if (buffer[0] != '+') {
         return false;
@@ -2867,295 +2863,10 @@ bool Sodaq_R4X::waitForSignalQuality(uint32_t timeout)
 }
 
 
-/******************************************************************************
-* Utils
-*****************************************************************************/
-
-uint32_t Sodaq_R4X::convertDatetimeToEpoch(int y, int m, int d, int h, int min, int sec)
-{
-    struct tm tm;
-
-    tm.tm_isdst = -1;
-    tm.tm_yday  = 0;
-    tm.tm_wday  = 0;
-    tm.tm_year  = y + EPOCH_TIME_YEAR_OFF;
-    tm.tm_mon   = m - 1;
-    tm.tm_mday  = d;
-    tm.tm_hour  = h;
-    tm.tm_min   = min;
-    tm.tm_sec   = sec;
-
-    return mktime(&tm);
-}
-
-bool Sodaq_R4X::startsWith(const char* pre, const char* str)
-{
-    return (strncmp(pre, str, strlen(pre)) == 0);
-}
-
 
 /******************************************************************************
 * Generic
 *****************************************************************************/
-
-// Returns true if the modem is on.
-bool Sodaq_R4X::isOn() const
-{
-    if (_onoff) {
-        return _onoff->isOn();
-    }
-
-    // No onoff. Let's assume it is on.
-    return true;
-}
-
-void Sodaq_R4X::writeProlog()
-{
-    if (!_appendCommand) {
-        debugPrint(">> ");
-        _appendCommand = true;
-    }
-}
-
-// Write a byte, as binary data
-size_t Sodaq_R4X::writeByte(uint8_t value)
-{
-    return _modemUART->write(value);
-}
-
-size_t Sodaq_R4X::print(const String& buffer)
-{
-    writeProlog();
-    debugPrint(buffer);
-
-    return _modemUART->print(buffer);
-}
-
-size_t Sodaq_R4X::print(const char buffer[])
-{
-    writeProlog();
-    debugPrint(buffer);
-
-    return _modemUART->print(buffer);
-}
-
-size_t Sodaq_R4X::print(char value)
-{
-    writeProlog();
-    debugPrint(value);
-
-    return _modemUART->print(value);
-};
-
-size_t Sodaq_R4X::print(unsigned char value, int base)
-{
-    writeProlog();
-    debugPrint(value, base);
-
-    return _modemUART->print(value, base);
-};
-
-size_t Sodaq_R4X::print(int value, int base)
-{
-    writeProlog();
-    debugPrint(value, base);
-
-    return _modemUART->print(value, base);
-};
-
-size_t Sodaq_R4X::print(unsigned int value, int base)
-{
-    writeProlog();
-    debugPrint(value, base);
-
-    return _modemUART->print(value, base);
-};
-
-size_t Sodaq_R4X::print(long value, int base)
-{
-    writeProlog();
-    debugPrint(value, base);
-
-    return _modemUART->print(value, base);
-};
-
-size_t Sodaq_R4X::print(unsigned long value, int base)
-{
-    writeProlog();
-    debugPrint(value, base);
-
-    return _modemUART->print(value, base);
-};
-
-size_t Sodaq_R4X::println(const __FlashStringHelper *ifsh)
-{
-    return print(ifsh) + println();
-}
-
-size_t Sodaq_R4X::println(const String &s)
-{
-    return print(s) + println();
-}
-
-size_t Sodaq_R4X::println(const char c[])
-{
-    return print(c) + println();
-}
-
-size_t Sodaq_R4X::println(char c)
-{
-    return print(c) + println();
-}
-
-size_t Sodaq_R4X::println(unsigned char b, int base)
-{
-    return print(b, base) + println();
-}
-
-size_t Sodaq_R4X::println(int num, int base)
-{
-    return print(num, base) + println();
-}
-
-size_t Sodaq_R4X::println(unsigned int num, int base)
-{
-    return print(num, base) + println();
-}
-
-size_t Sodaq_R4X::println(long num, int base)
-{
-    return print(num, base) + println();
-}
-
-size_t Sodaq_R4X::println(unsigned long num, int base)
-{
-    return print(num, base) + println();
-}
-
-size_t Sodaq_R4X::println(double num, int digits)
-{
-    writeProlog();
-    debugPrint(num, digits);
-
-    return _modemUART->println(num, digits);
-}
-
-size_t Sodaq_R4X::println(const Printable& x)
-{
-    return print(x) + println();
-}
-
-size_t Sodaq_R4X::println()
-{
-    debugPrintln();
-    size_t i = print(CR);
-    _appendCommand = false;
-    return i;
-}
-
-// Initializes the input buffer and makes sure it is only initialized once.
-// Safe to call multiple times.
-void Sodaq_R4X::initBuffer()
-{
-    debugPrintln("[initBuffer]");
-
-    // make sure the buffers are only initialized once
-    if (!_isBufferInitialized) {
-        _inputBuffer = static_cast<char*>(malloc(_inputBufferSize));
-        _isBufferInitialized = true;
-    }
-}
-
-/**
- * 1. check echo
- * 2. check ok
- * 3. check error
- * 4. if response prefix is not empty, check response prefix, append if multiline
- * 5. check URC, if handled => continue
- * 6. if response prefix is empty, return the whole line return line buffer, append if multiline
-*/
-GSMResponseTypes Sodaq_R4X::readResponse(char* outBuffer, size_t outMaxSize, const char* prefix, uint32_t timeout)
-{
-    bool usePrefix    = prefix != NULL && prefix[0] != 0;
-    bool useOutBuffer = outBuffer != NULL && outMaxSize > 0;
-
-    uint32_t from = NOW;
-
-    size_t outSize = 0;
-
-    if (outBuffer) {
-        outBuffer[0] = 0;
-    }
-
-    //debugPrintln(String("[readResponse] timeout: ") + timeout);
-    while (!is_timedout(from, timeout)) {
-        int count = readLn(_inputBuffer, _inputBufferSize, 250); // 250ms, how many bytes at which baudrate?
-        sodaq_wdt_reset();
-
-        if (count <= 0) {
-            continue;
-        }
-
-        debugPrint("<< ");
-        debugPrintln(_inputBuffer);
-
-        if (startsWith(STR_AT, _inputBuffer)) {
-            continue; // skip echoed back command
-        }
-
-        if (startsWith(STR_RESPONSE_OK, _inputBuffer)) {
-            return GSMResponseOK;
-        }
-
-        if (startsWith(STR_RESPONSE_ERROR, _inputBuffer) ||
-                startsWith(STR_RESPONSE_CME_ERROR, _inputBuffer) ||
-                startsWith(STR_RESPONSE_CMS_ERROR, _inputBuffer)) {
-            return GSMResponseError;
-        }
-
-        if (_inputBuffer[0] == STR_RESPONSE_SOCKET_PROMPT) {
-            return GSMResponseSocketPrompt;
-        }
-
-        if (_inputBuffer[0] == STR_RESPONSE_FILE_PROMPT) {
-            return GSMResponseFilePrompt;
-        }
-
-        bool hasPrefix = usePrefix && useOutBuffer && startsWith(prefix, _inputBuffer);
-
-        if (!hasPrefix && checkURC(_inputBuffer)) {
-            continue;
-        }
-
-        if (hasPrefix || (!usePrefix && useOutBuffer)) {
-            /* Notice that the minus one is to guarantee that there is space to
-             * add a NUL byte at the end.
-             */
-            if (outSize > 0 && outSize < outMaxSize - 1) {
-                outBuffer[outSize++] = LF;
-            }
-
-            if (outSize < outMaxSize - 1) {
-                char* inBuffer = _inputBuffer;
-                if (hasPrefix) {
-                    int i = strlen(prefix);
-                    count -= i;
-                    inBuffer += i;
-                }
-                if (outSize + count > outMaxSize - 1) {
-                    count = outMaxSize - 1 - outSize;
-                }
-                memcpy(outBuffer + outSize, inBuffer, count);
-                outSize += count;
-                outBuffer[outSize] = 0;
-            }
-        }
-    }
-
-    debugPrintln("[readResponse] timed out");
-
-    return GSMResponseTimeout;
-}
 
 /**
  * Wait for the Socket Prompt '@'
@@ -3171,137 +2882,6 @@ bool Sodaq_R4X::waitForSocketPrompt(uint32_t timeout)
 bool Sodaq_R4X::waitForFilePrompt(uint32_t timeout)
 {
     return waitForPrompt(STR_RESPONSE_FILE_PROMPT, timeout);
-}
-
-/**
- * Wait for a prompt
- *
- * Most likely there is a <CR><LF> first.
- */
-bool Sodaq_R4X::waitForPrompt(char prompt, uint32_t timeout)
-{
-    uint32_t start_ts = millis();
-    bool at_bol = true;
-    bool retval = false;
-    bool done_diag = false;
-
-    do {
-        int c = _modemUART->read();
-        if (c < 0) {
-            continue;
-        }
-
-        if (c == '\r') {
-            at_bol = true;
-        }
-        else if (c == '\n') {
-            at_bol = true;
-        }
-        else {
-            if (at_bol) {
-                debugPrint(">> ");
-                at_bol = false;
-                done_diag = true;
-            }
-            debugPrint((char)c);
-        }
-        if (c == prompt) {
-            retval = true;
-            break;
-        }
-    } while (!is_timedout(start_ts, timeout));
-
-    if (done_diag && !at_bol) {
-        debugPrintln();
-    }
-    return retval;
-}
-
-// Returns a character from the modem stream if read within _timeout ms or -1 otherwise.
-int Sodaq_R4X::timedRead(uint32_t timeout) const
-{
-    uint32_t _startMillis = millis();
-
-    do {
-        int c = _modemUART->read();
-
-        if (c >= 0) {
-            return c;
-        }
-    } while (!is_timedout(_startMillis, timeout));
-
-    return -1; // -1 indicates timeout
-}
-
-// Fills the given "buffer" with characters read from the modem stream up to "length"
-// maximum characters and until the "terminator" character is found or a character read
-// times out (whichever happens first).
-// The buffer does not contain the "terminator" character or a null terminator explicitly.
-// Returns the number of characters written to the buffer, not including null terminator.
-size_t Sodaq_R4X::readBytesUntil(char terminator, char* buffer, size_t length, uint32_t timeout)
-{
-    if (length < 1) {
-        return 0;
-    }
-
-    size_t index = 0;
-
-    while (index < length) {
-        int c = timedRead(timeout);
-
-        if (c < 0 || c == terminator) {
-            break;
-        }
-
-        *buffer++ = static_cast<char>(c);
-        index++;
-    }
-    if (index < length) {
-        *buffer = '\0';
-    }
-
-    return index; // return number of characters, not including null terminator
-}
-
-// Fills the given "buffer" with up to "length" characters read from the modem stream.
-// It stops when a character read times out or "length" characters have been read.
-// Returns the number of characters written to the buffer.
-size_t Sodaq_R4X::readBytes(uint8_t* buffer, size_t length, uint32_t timeout)
-{
-    size_t count = 0;
-
-    while (count < length) {
-        int c = timedRead(timeout);
-
-        if (c < 0) {
-            break;
-        }
-
-        *buffer++ = static_cast<uint8_t>(c);
-        count++;
-    }
-
-    return count;
-}
-
-// Reads a line (up to the SODAQ_GSM_TERMINATOR) from the modem stream into the "buffer".
-// The buffer is terminated with null.
-// Returns the number of bytes read, not including the null terminator.
-size_t Sodaq_R4X::readLn(char* buffer, size_t size, uint32_t timeout)
-{
-    // Use size-1 to leave room for a string terminator
-    size_t len = readBytesUntil(SODAQ_GSM_TERMINATOR[SODAQ_GSM_TERMINATOR_LEN - 1], buffer, size - 1, timeout);
-
-    // check if the terminator is more than 1 characters, then check if the first character of it exists
-    // in the calculated position and terminate the string there
-    if ((SODAQ_GSM_TERMINATOR_LEN > 1) && (buffer[len - (SODAQ_GSM_TERMINATOR_LEN - 1)] == SODAQ_GSM_TERMINATOR[0])) {
-        len -= SODAQ_GSM_TERMINATOR_LEN - 1;
-    }
-
-    // terminate string, there should always be room for it (see size-1 above)
-    buffer[len] = '\0';
-
-    return len;
 }
 
 
