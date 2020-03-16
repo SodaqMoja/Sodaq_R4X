@@ -66,6 +66,10 @@ Sodaq_Ublox::Sodaq_Ublox()
     _baudRate = 0;
     _onoff = 0;
 
+    _CSQtime = 0;
+    _lastRSSI            = 0;
+    _minRSSI             = -113;  // dBm
+
     _isBufferInitialized = false;
     _inputBuffer         = 0;
     _inputBufferSize     = SODAQ_UBLOX_DEFAULT_INPUT_BUFFER_SIZE;
@@ -101,6 +105,88 @@ bool Sodaq_Ublox::isOn() const
     // No onoff. Let's assume it is on.
     return true;
 }
+
+/******************************************************************************
+* RSSI and CSQ
+*****************************************************************************/
+
+bool Sodaq_Ublox::waitForSignalQuality(uint32_t timeout)
+{
+    debugPrintln("[R4X waitForSignalQuality]");
+
+    uint32_t start = millis();
+    const int8_t minRSSI = getMinRSSI();
+    int8_t rssi;
+    uint8_t ber;
+
+    uint32_t delay_count = 500;
+
+    while (!is_timedout(start, timeout)) {
+        if (getRSSIAndBER(&rssi, &ber)) {
+            if (rssi != 0 && rssi >= minRSSI) {
+                _lastRSSI = rssi;
+                _CSQtime = (int32_t)(millis() - start) / 1000;
+                return true;
+            }
+        }
+
+        sodaq_wdt_safe_delay(delay_count);
+
+        // Next time wait a little longer, but not longer than 5 seconds
+        if (delay_count < 5000) {
+            delay_count += 1000;
+        }
+    }
+
+    return false;
+}
+
+/*
+    The range is the following:
+    0: -113 dBm or less
+    1: -111 dBm
+    2..30: from -109 to -53 dBm with 2 dBm steps
+    31: -51 dBm or greater
+    99: not known or not detectable or currently not available
+*/
+int8_t Sodaq_Ublox::convertCSQ2RSSI(uint8_t csq) const
+{
+    return -113 + 2 * csq;
+}
+
+uint8_t Sodaq_Ublox::convertRSSI2CSQ(int8_t rssi) const
+{
+    return (rssi + 113) / 2;
+}
+
+// Gets the Received Signal Strength Indication in dBm and Bit Error Rate.
+// Returns true if successful.
+bool Sodaq_Ublox::getRSSIAndBER(int8_t* rssi, uint8_t* ber)
+{
+    debugPrintln("[R4X getRSSIAndBER]");
+    static char berValues[] = { 49, 43, 37, 25, 19, 13, 7, 0 }; // 3GPP TS 45.008 [20] subclause 8.2.4
+
+    println("AT+CSQ");
+
+    char buffer[256];
+
+    if (readResponse(buffer, sizeof(buffer), "+CSQ: ") != GSMResponseOK) {
+        return false;
+    }
+
+    int csqRaw;
+    int berRaw;
+
+    if (sscanf(buffer, "%d,%d", &csqRaw, &berRaw) != 2) {
+        return false;
+    }
+
+    *rssi = ((csqRaw == 99) ? 0 : convertCSQ2RSSI(csqRaw));
+    *ber  = ((berRaw == 99 || static_cast<size_t>(berRaw) >= sizeof(berValues)) ? 0 : berValues[berRaw]);
+
+    return true;
+}
+
 
 /**
  * Wait for a prompt
@@ -491,4 +577,62 @@ uint32_t Sodaq_Ublox::convertDatetimeToEpoch(int y, int m, int d, int h, int min
 bool Sodaq_Ublox::startsWith(const char* pre, const char* str)
 {
     return (strncmp(pre, str, strlen(pre)) == 0);
+}
+
+bool Sodaq_Ublox::isValidIPv4(const char* str)
+{
+    uint8_t  segs  = 0; // Segment count
+    uint8_t  chcnt = 0; // Character count within segment
+    uint16_t accum = 0; // Accumulator for segment
+
+    if (!str) {
+        return false;
+    }
+
+    // Process every character in string
+    while (*str != '\0') {
+        // Segment changeover
+        if (*str == '.') {
+            // Must have some digits in segment
+            if (chcnt == 0) {
+                return false;
+            }
+
+            // Limit number of segments
+            if (++segs == 4) {
+                return false;
+            }
+
+            // Reset segment values and restart loop
+            chcnt = accum = 0;
+            str++;
+            continue;
+        }
+
+        // Check numeric
+        if ((*str < '0') || (*str > '9')) {
+            return false;
+        }
+
+        // Accumulate and check segment
+        if ((accum = accum * 10 + *str - '0') > 255) {
+            return false;
+        }
+
+        // Advance other segment specific stuff and continue loop
+        chcnt++;
+        str++;
+    }
+
+    // Check enough segments and enough characters in last segment
+    if (segs != 3) {
+        return false;
+    }
+
+    if (chcnt == 0) {
+        return false;
+    }
+
+    // Address OK
+    return true;
 }

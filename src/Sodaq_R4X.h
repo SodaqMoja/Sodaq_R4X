@@ -187,25 +187,6 @@ public:
 
 
     /******************************************************************************
-    * RSSI and CSQ
-    *****************************************************************************/
-
-    int8_t  convertCSQ2RSSI(uint8_t csq) const;
-    uint8_t convertRSSI2CSQ(int8_t rssi) const;
-
-    uint8_t getCSQtime()  const { return _CSQtime; }
-    int8_t  getLastRSSI() const { return _lastRSSI; }
-    int8_t  getMinRSSI()  const { return _minRSSI; }
-
-    // Gets the Received Signal Strength Indication in dBm and Bit Error Rate.
-    // Returns true if successful.
-    bool    getRSSIAndBER(int8_t* rssi, uint8_t* ber);
-
-    void    setMinCSQ(int csq) { _minRSSI = convertCSQ2RSSI(csq); }
-    void    setMinRSSI(int rssi) { _minRSSI = rssi; }
-
-
-    /******************************************************************************
     * Sockets
     *****************************************************************************/
 
@@ -345,12 +326,9 @@ private:
     bool   checkURC(const char* buffer);
     bool   doSIMcheck();
     bool   setNetworkLEDState();
-    bool   isValidIPv4(const char* str);
 
     void   reboot();
     bool   setSimPin(const char* simPin);
-#define R4X_DEFAULT_CSQ_TIMEOUT         (5L * 60L * 1000)
-    bool   waitForSignalQuality(uint32_t timeout = R4X_DEFAULT_CSQ_TIMEOUT);
 
 
     /******************************************************************************
@@ -388,24 +366,6 @@ private:
 
     // Power Saving Mode (PSM)
     bool _psm;
-
-    // This is the value of the most recent CSQ
-    // Notice that CSQ is somewhat standard. SIM800/SIM900 and Ublox
-    // compute to comparable numbers. With minor deviations.
-    // For example SIM800
-    //   1              -111 dBm
-    //   2...30         -110... -54 dBm
-    // For example UBlox
-    //   1              -111 dBm
-    //   2..30          -109 to -53 dBm
-    int8_t _lastRSSI;   // 0 not known or not detectable
-
-    // This is the number of second it took when CSQ was record last
-    uint8_t _CSQtime;
-
-    // This is the minimum required RSSI to continue making the connection
-    // Use convertCSQ2RSSI if you have a CSQ value
-    int _minRSSI;
 
     // Keep track when connect started. Use this to record various status changes.
     uint32_t _startOn;
