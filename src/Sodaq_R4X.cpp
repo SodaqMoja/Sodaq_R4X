@@ -43,6 +43,15 @@ POSSIBILITY OF SUCH DAMAGE.
 #define REBOOT_TIMEOUT          15000
 #define POWER_OFF_DELAY         5000
 
+#define DEFAULT_CONNECT_TIMEOUT         (10L * 60L * 1000)
+#define DEFAULT_DISCONNECT_TIMEOUT      (40L * 1000)
+#define DEFAULT_CGACT_TIMEOUT           (150L * 1000)
+#define DEFAULT_COPS_TIMEOUT            (180L * 1000)
+#define DEFAULT_SOCKET_CLOSE_TIMEOUT    (120L * 1000)
+#define DEFAULT_SOCKET_CONNECT_TIMEOUT  (120L * 1000)
+#define DEFAULT_SOCKET_WRITE_TIMEOUT    (120L * 1000)
+#define DEFAULT_UMQTT_TIMEOUT           (60L * 1000)
+
 #define SODAQ_GSM_TERMINATOR "\r\n"
 #define SODAQ_GSM_MODEM_DEFAULT_INPUT_BUFFER_SIZE 1024
 #define SODAQ_GSM_TERMINATOR_LEN (sizeof(SODAQ_GSM_TERMINATOR) - 1)
@@ -142,13 +151,14 @@ Sodaq_R4X::Sodaq_R4X() :
     }
     memset(_socketPendingBytes, 0, sizeof(_socketPendingBytes));
 
-    _disconnect_timeout = R4X_DEFAULT_DISCONNECT_TIMEOUT;
-    _cgact_timeout = R4X_DEFAULT_CGACT_TIMEOUT;
-    _cops_timeout = R4X_DEFAULT_COPS_TIMEOUT;
-    _socket_close_timeout = R4X_DEFAULT_SOCKET_CLOSE_TIMEOUT;
-    _socket_connect_timeout = R4X_DEFAULT_SOCKET_CONNECT_TIMEOUT;
-    _socket_write_timeout = R4X_DEFAULT_SOCKET_WRITE_TIMEOUT;
-    _umqtt_timeout = R4X_DEFAULT_UMQTT_TIMEOUT;
+    _connect_timeout = DEFAULT_CONNECT_TIMEOUT;
+    _disconnect_timeout = DEFAULT_DISCONNECT_TIMEOUT;
+    _cgact_timeout = DEFAULT_CGACT_TIMEOUT;
+    _cops_timeout = DEFAULT_COPS_TIMEOUT;
+    _socket_close_timeout = DEFAULT_SOCKET_CLOSE_TIMEOUT;
+    _socket_connect_timeout = DEFAULT_SOCKET_CONNECT_TIMEOUT;
+    _socket_write_timeout = DEFAULT_SOCKET_WRITE_TIMEOUT;
+    _umqtt_timeout = DEFAULT_UMQTT_TIMEOUT;
 }
 
 // Initializes the modem instance. Sets the modem UART and the on-off power pins.
@@ -324,6 +334,10 @@ bool Sodaq_R4X::connect(const char* apn, const char* urat, uint8_t mnoProfile,
 {
     debugPrintln("[R4X connect]");
 
+    uint32_t start_ts = millis();
+    uint32_t elapsed;
+    uint32_t remaining_timeout;
+
     if (!on()) {
         return false;
     }
@@ -365,8 +379,21 @@ bool Sodaq_R4X::connect(const char* apn, const char* urat, uint8_t mnoProfile,
     if (!checkBandMasks(bandMaskLTE, bandMaskNB)) {
         return false;
     }
+    /*
+     * Check the duration so far. If timed out, then quit.
+     */
+    elapsed = millis() - start_ts;
+    remaining_timeout = _connect_timeout - elapsed;
+    if (is_timedout(start_ts, _connect_timeout)) {
+        return false;
+    }
 
     if (!checkCOPS(operatorSelect != 0 ? operatorSelect : AUTOMATIC_OPERATOR, urat)) {
+        return false;
+    }
+    elapsed = millis() - start_ts;
+    remaining_timeout = _connect_timeout - elapsed;
+    if (is_timedout(start_ts, _connect_timeout)) {
         return false;
     }
 
@@ -374,14 +401,24 @@ bool Sodaq_R4X::connect(const char* apn, const char* urat, uint8_t mnoProfile,
     if (i < 0) {
         return false;
     }
-
-    uint32_t tm = millis();
-
-    if (!waitForSignalQuality()) {
+    elapsed = millis() - start_ts;
+    remaining_timeout = _connect_timeout - elapsed;
+    if (is_timedout(start_ts, _connect_timeout)) {
         return false;
     }
 
-    if (i == 0 && !attachGprs()) {
+    uint32_t tm = millis();
+
+    if (!waitForSignalQuality(remaining_timeout)) {
+        return false;
+    }
+    elapsed = millis() - start_ts;
+    remaining_timeout = _connect_timeout - elapsed;
+    if (is_timedout(start_ts, _connect_timeout)) {
+        return false;
+    }
+
+    if (i == 0 && !attachGprs(remaining_timeout)) {
         return false;
     }
 
@@ -430,7 +467,14 @@ bool Sodaq_R4X::attachGprs(uint32_t timeout)
 
     while (!is_timedout(start, timeout)) {
         if (isAttached()) {
-            if (isDefinedIP4() || (execCommand("AT+CGACT=1", _cgact_timeout) && isDefinedIP4())) {
+            /*
+             * Don't use more timeout than we're being told.
+             */
+            uint32_t my_timeout = _cgact_timeout;
+            if (my_timeout > timeout) {
+                my_timeout = timeout;
+            }
+            if (isDefinedIP4() || (execCommand("AT+CGACT=1", my_timeout) && isDefinedIP4())) {
                 retval = true;
                 break;
             }
@@ -444,6 +488,9 @@ bool Sodaq_R4X::attachGprs(uint32_t timeout)
         }
     }
 
+    if (is_timedout(start, timeout)) {
+        debugPrintln("[R4X attachGprs] timed out");
+    }
     return retval;
 }
 
@@ -2871,6 +2918,7 @@ bool Sodaq_R4X::setSimPin(const char* simPin)
 bool Sodaq_R4X::waitForSignalQuality(uint32_t timeout)
 {
     debugPrintln("[R4X waitForSignalQuality]");
+
     uint32_t start = millis();
     const int8_t minRSSI = getMinRSSI();
     int8_t rssi;

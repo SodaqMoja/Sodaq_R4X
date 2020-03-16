@@ -32,14 +32,7 @@ POSSIBILITY OF SUCH DAMAGE.
 #ifndef _Sodaq_R4X_h
 #define _Sodaq_R4X_h
 
-#define R4X_DEFAULT_RESPONSE_TIMEOUT    5000
-#define R4X_DEFAULT_DISCONNECT_TIMEOUT          (40L * 1000)
-#define R4X_DEFAULT_CGACT_TIMEOUT               (150L * 1000)
-#define R4X_DEFAULT_COPS_TIMEOUT                180000
-#define R4X_DEFAULT_SOCKET_CLOSE_TIMEOUT        120000
-#define R4X_DEFAULT_SOCKET_CONNECT_TIMEOUT      120000
-#define R4X_DEFAULT_SOCKET_WRITE_TIMEOUT        120000
-#define R4X_DEFAULT_UMQTT_TIMEOUT               60000
+#define R4X_DEFAULT_RESPONSE_TIMEOUT            5000
 #define SODAQ_MAX_SEND_MESSAGE_SIZE     512
 #define SODAQ_R4X_DEFAULT_CID           1
 #define SODAQ_R4X_DEFAULT_READ_TIMOUT   15000
@@ -159,10 +152,10 @@ public:
     // Turns on and initializes the modem, then connects to the network and activates the data connection.
     bool connect(const char* apn, const char* urat = DEFAULT_URAT,
         const char* bandMask = BAND_MASK_UNCHANGED);
-
     bool connect(const char* apn, const char* urat, uint8_t mnoProfile,
         const char* operatorSelect = AUTOMATIC_OPERATOR, const char* bandMaskLTE = BAND_MASK_UNCHANGED, 
         const char* bandMaskNB = BAND_MASK_UNCHANGED);
+    void setConnectTimeout(uint32_t t) { _connect_timeout = t; }
 
     // Disconnects the modem from the network.
     bool disconnect();
@@ -477,6 +470,7 @@ private:
     // Keep track when connect started. Use this to record various status changes.
     uint32_t _startOn;
 
+    uint32_t    _connect_timeout;
     uint32_t    _disconnect_timeout;
     uint32_t    _cgact_timeout;
     uint32_t    _cops_timeout;
