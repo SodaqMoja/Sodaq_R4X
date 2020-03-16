@@ -239,8 +239,6 @@ bool Sodaq_Ublox::getFirmwareRevision(char* buffer, size_t size)
 
 bool Sodaq_Ublox::waitForSignalQuality(uint32_t timeout)
 {
-    debugPrintln("[R4X waitForSignalQuality]");
-
     uint32_t start = millis();
     const int8_t minRSSI = getMinRSSI();
     int8_t rssi;
@@ -290,7 +288,6 @@ uint8_t Sodaq_Ublox::convertRSSI2CSQ(int8_t rssi) const
 // Returns true if successful.
 bool Sodaq_Ublox::getRSSIAndBER(int8_t* rssi, uint8_t* ber)
 {
-    debugPrintln("[R4X getRSSIAndBER]");
     static char berValues[] = { 49, 43, 37, 25, 19, 13, 7, 0 }; // 3GPP TS 45.008 [20] subclause 8.2.4
 
     println("AT+CSQ");
