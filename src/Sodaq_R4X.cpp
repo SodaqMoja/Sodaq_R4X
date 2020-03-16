@@ -86,9 +86,6 @@ POSSIBILITY OF SUCH DAMAGE.
 #define debugPrintln(...)
 #endif
 
-#define CR '\r'
-#define LF '\n'
-
 static inline bool is_timedout(uint32_t from, uint32_t nr_ms) __attribute__((always_inline));
 static inline bool is_timedout(uint32_t from, uint32_t nr_ms) { return (millis() - from) > nr_ms; }
 

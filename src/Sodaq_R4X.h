@@ -157,6 +157,7 @@ public:
     bool getFirmwareVersion(char* buffer, size_t size);
     bool getFirmwareRevision(char* buffer, size_t size);
     bool getIMEI(char* buffer, size_t size);
+
     SimStatuses getSimStatus();
 
     // Returns true if the modem is attached to the network and has an activated data connection.
