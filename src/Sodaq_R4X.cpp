@@ -196,6 +196,10 @@ bool Sodaq_R4X::on()
         else {
             execCommand("AT+CPSMS=0");
         }
+
+        execCommand("AT+CPSMS?");
+        execCommand("AT+CEDRXS?");
+        execCommand("AT+UPSV?");
     }
 
     return isOn();
@@ -411,6 +415,9 @@ bool Sodaq_R4X::connect()
     else {
         execCommand("AT+CPSMS=0");
     }
+    execCommand("AT+CPSMS?");
+    execCommand("AT+CEDRXS?");
+    execCommand("AT+UPSV?");
 
     return doSIMcheck();
 }
