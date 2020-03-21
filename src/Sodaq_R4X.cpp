@@ -216,6 +216,7 @@ bool Sodaq_R4X::on()
             }
         }
 
+        execCommand("AT+CEDRXS=0");
         if (_psm) {
             execCommand("AT+CPSMS=1");
         }
@@ -442,6 +443,7 @@ bool Sodaq_R4X::connect()
         }
     }
 
+    execCommand("AT+CEDRXS=0");
     if (_psm) {
         execCommand("AT+CPSMS=1");
     }
