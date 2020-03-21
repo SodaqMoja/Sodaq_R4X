@@ -102,7 +102,7 @@ Sodaq_R4X::Sodaq_R4X() : Sodaq_Ublox()
 {
     _echoOff = false;
     _hexMode = false;
-    _psm = true;
+    _psm = false;
     _upsv = false;
 
     _mqttLoginResult     = -1;
