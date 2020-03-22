@@ -39,6 +39,15 @@ POSSIBILITY OF SUCH DAMAGE.
 #define SODAQ_MAX_SEND_MESSAGE_SIZE     512
 #define SODAQ_R4X_MAX_SOCKET_BUFFER     1024
 
+/**
+ * The value for AT+URAT=
+ *
+ * R410/R412 has the following:
+ *   3: LTE
+ *   7: LTE Cat M1
+ *   8: LTE Cat NB1
+ *   9: GPRS / eGPRS
+ */
 #define SODAQ_R4X_LTEM_URAT             "7"
 #define SODAQ_R4X_NBIOT_URAT            "8"
 #define SODAQ_R4X_2G_URAT               "9"
@@ -48,6 +57,7 @@ POSSIBILITY OF SUCH DAMAGE.
 #define SODAQ_R4X_LTEM_NBIOT_2G_URAT    "7,8,9"
 
 #define SODAQ_R4X_DEFAULT_URAT          SODAQ_R4X_NBIOT_URAT
+
 #define SODAQ_R4X_AUTOMATIC_OPERATOR    "0"
 #define BAND_MASK_UNCHANGED             0
 
