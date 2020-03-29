@@ -65,6 +65,24 @@ public:
     virtual bool isOn() = 0;
 };
 
+/**
+ * Extended Signal Quality
+ *
+ * This struct is used as a collection of the values returned by the AT+CESQ
+ * command.
+ */
+typedef struct
+{
+    int16_t rssi;       //< Received Signal Strength Indication (RSSI) (dBm)
+    uint8_t ber;        //< Bit Error Rate (BER)
+    uint8_t rscp;       //< Received Signal Code Power (RSCP)
+    uint8_t ecn0;       //< Ratio of received energy per PN chip to the
+                        //  total received power spectral density
+    int16_t rsrq;       //< Reference Signal Received Quality (RSRQ)
+    int16_t rsrp;       //< Reference Signal Received Power (RSRP)
+    int16_t snr;        //< Signal to noise ratio
+} ext_sig_qual_t;
+
 class Sodaq_Ublox
 {
 public:
@@ -132,6 +150,7 @@ public:
      *****************************************************************************/
 
     int8_t  convertCSQ2RSSI(uint8_t csq) const;
+    int8_t  convertCESQ2RSSI(uint8_t cesq) const;
     uint8_t convertRSSI2CSQ(int8_t rssi) const;
 
     uint8_t getCSQtime()  const { return _CSQtime; }
@@ -144,6 +163,8 @@ public:
 
     void    setMinCSQ(int csq) { _minRSSI = convertCSQ2RSSI(csq); }
     void    setMinRSSI(int rssi) { _minRSSI = rssi; }
+
+    virtual bool getExtendedSignalQuality(ext_sig_qual_t * esq);
 
     /* Generic function to execute whatever AT command
      */

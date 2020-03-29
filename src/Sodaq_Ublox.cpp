@@ -266,7 +266,8 @@ bool Sodaq_Ublox::waitForSignalQuality(uint32_t timeout)
     return false;
 }
 
-/*
+/**
+ * Convert a CSQ value to RSSI
     The range is the following:
     0: -113 dBm or less
     1: -111 dBm
@@ -279,6 +280,19 @@ int8_t Sodaq_Ublox::convertCSQ2RSSI(uint8_t csq) const
     return -113 + 2 * csq;
 }
 
+/**
+ * Convert a CESQ value to RSSI
+    The range is the following:
+    0: less than -110 dBm
+    1..62: from -110 to -49 dBm with 1 dBm steps
+    63: -48 dBm or greater
+    99: not known or not detectable
+*/
+int8_t Sodaq_Ublox::convertCESQ2RSSI(uint8_t cesq) const
+{
+    return -109 + cesq;
+}
+
 uint8_t Sodaq_Ublox::convertRSSI2CSQ(int8_t rssi) const
 {
     return (rssi + 113) / 2;
@@ -288,25 +302,71 @@ uint8_t Sodaq_Ublox::convertRSSI2CSQ(int8_t rssi) const
 // Returns true if successful.
 bool Sodaq_Ublox::getRSSIAndBER(int8_t* rssi, uint8_t* ber)
 {
+    /* FIXME
+     * Please notice that the conversion of "ber" values are most likely
+     * to be incorrect.
+     */
     static char berValues[] = { 49, 43, 37, 25, 19, 13, 7, 0 }; // 3GPP TS 45.008 [20] subclause 8.2.4
 
+    char buffer[128];
     println("AT+CSQ");
-
-    char buffer[256];
-
     if (readResponse(buffer, sizeof(buffer), "+CSQ: ") != GSMResponseOK) {
         return false;
     }
 
-    int csqRaw;
-    int berRaw;
+    int csq;
+    int tmp_ber;
 
-    if (sscanf(buffer, "%d,%d", &csqRaw, &berRaw) != 2) {
+    if (sscanf(buffer, "%d,%d", &csq, &tmp_ber) != 2) {
         return false;
     }
 
-    *rssi = ((csqRaw == 99) ? 0 : convertCSQ2RSSI(csqRaw));
-    *ber  = ((berRaw == 99 || static_cast<size_t>(berRaw) >= sizeof(berValues)) ? 0 : berValues[berRaw]);
+    if (rssi) {
+        *rssi = ((csq == 99) ? 0 : convertCSQ2RSSI(csq));
+    }
+    if (ber) {
+        *ber  = ((tmp_ber == 99 ||
+                 static_cast<size_t>(tmp_ber) >= sizeof(berValues)) ? 0 : berValues[tmp_ber]);
+    }
+
+    return true;
+}
+
+/**
+ * Get the Extended Signal Quality (AT+CESQ)
+ *
+ * \param[out] result Pointer to a struct for the result values
+ *
+ * AT+CESQ returns +CESQ: <rxlev>,<ber>,<rscp>,<ecn0>,<rsrq>,<rsrp>
+ */
+bool Sodaq_Ublox::getExtendedSignalQuality(ext_sig_qual_t * esq)
+{
+    char buffer[128];
+    println("AT+CESQ");
+    if (readResponse(buffer, sizeof(buffer), "+CESQ: ") != GSMResponseOK) {
+        return false;
+    }
+
+    int rssi;
+    int ber;
+    int rscp;
+    int ecn0;
+    int rsrq;
+    int rsrp;
+    if (sscanf(buffer, "%d,%d,%d,%d,%d,%d",
+               &rssi, &ber, &rscp, &ecn0, &rsrq, &rsrp) != 6) {
+        return false;
+    }
+
+    if (esq) {
+        memset(esq, 0, sizeof(*esq));
+        esq->rssi = ((rssi == 99) ? 0 : convertCESQ2RSSI(rssi));
+        esq->ber = ber;
+        esq->rscp = rscp;
+        esq->ecn0 = ecn0;
+        esq->rsrq = rsrq;
+        esq->rsrp = rsrp;
+    }
 
     return true;
 }
