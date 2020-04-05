@@ -2388,6 +2388,9 @@ bool Sodaq_R4X::checkCOPS(const char* requiredOperator, const char* requiredURAT
  *    AT+CFUN=4 cycle or issue the AT+COPS=2 command)
  *  • Issue AT+UMNOPROF=<MNO>
  *  • Reboot the module (AT+CFUN=15) in order to apply the new configuration
+ * However, it was pointed out by Ublox that the first step MUST be
+ * a AT+CFUN=0, setRadioActive(false). This is also true for AT+URAT= and
+ * AT+UBANDMASK=
  */
 bool Sodaq_R4X::checkMnoProfile(MNOProfile requiredProfile)
 {
