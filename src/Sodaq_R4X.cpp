@@ -2098,34 +2098,32 @@ size_t Sodaq_R4X::readFile(const char* filename, uint8_t* buffer, size_t size)
     // to be able to also read terminator characters within files
     char checkChar = 0;
 
-    /* TODO */
-#if 1
-    size_t len = 0;
-    return 0;
-#else
-    // reply identifier
-    size_t len = readBytesUntil(' ', _inputBuffer, _inputBufferSize);
-    if (len == 0 || strstr(_inputBuffer, "+URDFILE:") == NULL) {
+    char reply_buffer[256];       // Filenames can be 248 chars long
+
+    // Read reply identifier +URDFILE:
+    size_t len = readBytesUntil(' ', reply_buffer, sizeof(reply_buffer));
+    if (len == 0 || strstr(reply_buffer, "+URDFILE:") == NULL) {
         debugPrintln(DEBUG_STR_ERROR "+URDFILE literal is missing!");
         return 0;
     }
 
-    // filename
-    len = readBytesUntil(',', _inputBuffer, _inputBufferSize);
+    // Read filename
+    len = readBytesUntil(',', reply_buffer, sizeof(reply_buffer));
     // TODO check filename after removing quotes and escaping chars
 
-    // filesize
-    len = readBytesUntil(',', _inputBuffer, _inputBufferSize);
+    // Read filesize
+    len = readBytesUntil(',', reply_buffer, sizeof(reply_buffer));
     filesize = 0; // reset the var before reading from reply string
-    if (sscanf(_inputBuffer, "%lu", &filesize) != 1) {
+    if (sscanf(reply_buffer, "%lu", &filesize) != 1) {
         debugPrintln(DEBUG_STR_ERROR "Could not parse the file size!");
         return 0;
     }
+    /* Filesize was already checked. Repeat it once more.
+     */
     if (filesize == 0 || filesize > size) {
         debugPrintln(DEBUG_STR_ERROR "Size error!");
         return 0;
     }
-#endif
 
     // opening quote character
     checkChar = timedRead();
@@ -2167,28 +2165,25 @@ size_t Sodaq_R4X::readFilePartial(const char* filename, uint8_t* buffer, size_t 
     print(',');
     println(size);
 
-#if 1
-    size_t len = 0;
-    uint32_t blocksize = 0;
-    return 0;
-#else
-    // reply identifier
+    char reply_buffer[256];       // Filenames can be 248 chars long
+
+    // Read reply identifier
     //   +URDBLOCK: http_last_response_0,86,"..."
     // where 86 is an example of the size
-    size_t len = readBytesUntil(' ', _inputBuffer, _inputBufferSize);
-    if (len == 0 || strstr(_inputBuffer, "+URDBLOCK:") == NULL) {
+    size_t len = readBytesUntil(' ', reply_buffer, sizeof(reply_buffer));
+    if (len == 0 || strstr(reply_buffer, "+URDBLOCK:") == NULL) {
         debugPrintln(DEBUG_STR_ERROR "+URDBLOCK literal is missing!");
         return 0;
     }
 
     // skip filename
-    len = readBytesUntil(',', _inputBuffer, _inputBufferSize);
-    // TODO check filename. Note, there are no quotes
+    len = readBytesUntil(',', reply_buffer, sizeof(reply_buffer));
+    // TODO check filename. Note, there are no quotes. ??Manual example has qotes
 
     // read the number of bytes
-    len = readBytesUntil(',', _inputBuffer, _inputBufferSize);
+    len = readBytesUntil(',', reply_buffer, sizeof(reply_buffer));
     uint32_t blocksize = 0; // reset the var before reading from reply string
-    if (sscanf(_inputBuffer, "%lu", &blocksize) != 1) {
+    if (sscanf(reply_buffer, "%lu", &blocksize) != 1) {
         debugPrintln(DEBUG_STR_ERROR "Could not parse the block size!");
         return 0;
     }
@@ -2196,7 +2191,6 @@ size_t Sodaq_R4X::readFilePartial(const char* filename, uint8_t* buffer, size_t 
         debugPrintln(DEBUG_STR_ERROR "Size error!");
         return 0;
     }
-#endif
 
     // opening quote character
     char quote = timedRead();
