@@ -1027,7 +1027,9 @@ size_t Sodaq_R4X::socketReceive(uint8_t socketID, uint8_t* buffer, size_t size)
 
     /* Enable HEX mode
      */
-    execCommand("AT+UDCONF=1,1");
+    if (!enableHexMode()) {
+        return 0;
+    }
 
     /* Determine the size we can handle.
      * This could mean we read less bytes then there are available.
