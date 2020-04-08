@@ -182,6 +182,7 @@ public:
     bool getIMEI(char* buffer, size_t size);
     bool getEpoch(uint32_t* epoch);
     bool getOperatorInfo(uint16_t* mcc, uint16_t* mnc);
+    bool getOperatorInfoNumber(char* buffer, size_t size);
     bool getOperatorInfoString(char* buffer, size_t size);
     bool getCellInfo(uint16_t* tac, uint32_t* cid, uint16_t* urat);
 

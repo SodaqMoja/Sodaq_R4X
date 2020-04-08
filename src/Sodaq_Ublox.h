@@ -142,6 +142,7 @@ public:
     virtual bool getIMEI(char* buffer, size_t size) = 0;
     virtual bool getEpoch(uint32_t* epoch) = 0;
     virtual bool getOperatorInfo(uint16_t* mcc, uint16_t* mnc) = 0;
+    virtual bool getOperatorInfoNumber(char* buffer, size_t size) = 0;
     virtual bool getOperatorInfoString(char* buffer, size_t size) = 0;
     virtual bool getCellInfo(uint16_t* tac, uint32_t* cid, uint16_t* urat) = 0;
 
