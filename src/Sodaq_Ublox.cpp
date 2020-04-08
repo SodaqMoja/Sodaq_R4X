@@ -333,6 +333,39 @@ bool Sodaq_Ublox::getRSSIAndBER(int8_t* rssi, uint8_t* ber)
 }
 
 /**
+ * Convert a RSRQ value to dBm
+ * Reference Signal Received Quality (RSRQ):
+ * • 0: -19 dB or less
+ * • 1..33: from -19.5 dB to -3.5 dB with 0.5 dB steps
+ * • 34: -3 dB or greater
+ * • 255: not known or not detectable
+*/
+float Sodaq_Ublox::convertRSRQ2dBm(uint8_t rsrq) const
+{
+    if (rsrq <= 34) {
+        // Using -20 not the -19 from the manual.
+        return -20.0 + 0.5 * rsrq;
+    }
+    return 0.0;
+}
+
+/**
+ * Convert a RSRP value to dBm
+ * Reference Signal Received Power (RSRP):
+ * • 0: -141 dBm or less
+ * • 1..96: from -140 dBm to -45 dBm with 1 dBm steps
+ * • 97: -44 dBm or greater
+ * • 255: not known or not detectable
+*/
+float Sodaq_Ublox::convertRSRP2dBm(uint8_t rsrp) const
+{
+    if (rsrp <= 97) {
+        return -141.0 + rsrp;
+    }
+    return 0.0;
+}
+
+/**
  * Get the Extended Signal Quality (AT+CESQ)
  *
  * \param[out] result Pointer to a struct for the result values
@@ -364,8 +397,8 @@ bool Sodaq_Ublox::getExtendedSignalQuality(ext_sig_qual_t * esq)
         esq->ber = ber;
         esq->rscp = rscp;
         esq->ecn0 = ecn0;
-        esq->rsrq = rsrq;
-        esq->rsrp = rsrp;
+        esq->rsrq = convertRSRQ2dBm(rsrq);
+        esq->rsrp = convertRSRP2dBm(rsrp);
     }
 
     return true;

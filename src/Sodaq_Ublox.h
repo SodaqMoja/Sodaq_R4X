@@ -78,9 +78,9 @@ typedef struct
     uint8_t rscp;       //< Received Signal Code Power (RSCP)
     uint8_t ecn0;       //< Ratio of received energy per PN chip to the
                         //  total received power spectral density
-    int16_t rsrq;       //< Reference Signal Received Quality (RSRQ)
-    int16_t rsrp;       //< Reference Signal Received Power (RSRP)
-    int16_t snr;        //< Signal to noise ratio
+    float rsrq;        //< Reference Signal Received Quality (RSRQ)
+    float rsrp;        //< Reference Signal Received Power (RSRP)
+    float snr;         //< Signal to noise ratio
 } ext_sig_qual_t;
 
 class Sodaq_Ublox
@@ -153,6 +153,9 @@ public:
     int8_t  convertCSQ2RSSI(uint8_t csq) const;
     int8_t  convertCESQ2RSSI(uint8_t cesq) const;
     uint8_t convertRSSI2CSQ(int8_t rssi) const;
+
+    float  convertRSRQ2dBm(uint8_t rsrq) const;
+    float  convertRSRP2dBm(uint8_t rsrp) const;
 
     uint8_t getCSQtime()  const { return _CSQtime; }
     int8_t  getLastRSSI() const { return _lastRSSI; }
