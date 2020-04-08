@@ -1324,6 +1324,7 @@ bool Sodaq_R4X::mqttLogout()
 
 void Sodaq_R4X::mqttLoop()
 {
+    sodaq_wdt_reset();
     if (_modemUART->available()) {
 
         int count = readLn(250);        // 250ms, how many bytes at which baudrate?
