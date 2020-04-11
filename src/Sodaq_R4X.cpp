@@ -348,7 +348,6 @@ bool Sodaq_R4X::connect()
     debugPrintln("[R4X connect]");
 
     uint32_t start_ts = millis();
-    uint32_t elapsed;
     uint32_t remaining_timeout;
 
     if (!on()) {
@@ -388,17 +387,21 @@ bool Sodaq_R4X::connect()
     /*
      * Check the duration so far. If timed out, then quit.
      */
-    elapsed = millis() - start_ts;
-    remaining_timeout = _connect_timeout - elapsed;
-    if (is_timedout(start_ts, _connect_timeout)) {
+    size_t cops_retry_count = 3;
+    bool cops_succeeded = false;
+    for (size_t i = 0; i < cops_retry_count; i++) {
+        if (is_timedout(start_ts, _connect_timeout)) {
+            return false;
+        }
+        if (checkCOPS(_opr, _urat)) {
+            cops_succeeded = true;
+            break;
+        }
+    }
+    if (!cops_succeeded) {
         return false;
     }
 
-    if (!checkCOPS(_opr, _urat)) {
-        return false;
-    }
-    elapsed = millis() - start_ts;
-    remaining_timeout = _connect_timeout - elapsed;
     if (is_timedout(start_ts, _connect_timeout)) {
         return false;
     }
@@ -406,8 +409,7 @@ bool Sodaq_R4X::connect()
     if (!checkApn(_apn)) {
         return false;
     }
-    elapsed = millis() - start_ts;
-    remaining_timeout = _connect_timeout - elapsed;
+    remaining_timeout = _connect_timeout - (millis() - start_ts);
     if (is_timedout(start_ts, _connect_timeout)) {
         return false;
     }
@@ -417,12 +419,11 @@ bool Sodaq_R4X::connect()
     if (!waitForSignalQuality(remaining_timeout)) {
         return false;
     }
-    elapsed = millis() - start_ts;
-    remaining_timeout = _connect_timeout - elapsed;
     if (is_timedout(start_ts, _connect_timeout)) {
         return false;
     }
 
+    remaining_timeout = _connect_timeout - (millis() - start_ts);
     if (!attachGprs(remaining_timeout)) {
         return false;
     }
@@ -2664,6 +2665,10 @@ void Sodaq_R4X::reboot()
     uint32_t start = millis();
     while (!isAlive() && !is_timedout(start, 3000)) {
         sodaq_wdt_safe_delay(100);
+    }
+    /* Flush any input that came in right after the loop timed out.
+     */
+    while (readLn(10) > 0) {
     }
 
     // echo off again after reboot
