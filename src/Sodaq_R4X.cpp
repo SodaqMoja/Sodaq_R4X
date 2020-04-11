@@ -384,19 +384,15 @@ bool Sodaq_R4X::connect()
     if (!checkBandMasks(_bandMaskLTE, _bandMaskNB)) {
         return false;
     }
-    /*
-     * Check the duration so far. If timed out, then quit.
-     */
+
     size_t cops_retry_count = 3;
     bool cops_succeeded = false;
-    for (size_t i = 0; i < cops_retry_count; i++) {
-        if (is_timedout(start_ts, _connect_timeout)) {
-            return false;
-        }
+    for (size_t i = 0; i < cops_retry_count && !is_timedout(start_ts, _connect_timeout); i++) {
         if (checkCOPS(_opr, _urat)) {
             cops_succeeded = true;
             break;
         }
+        sodaq_wdt_safe_delay(1000);
     }
     if (!cops_succeeded) {
         return false;
