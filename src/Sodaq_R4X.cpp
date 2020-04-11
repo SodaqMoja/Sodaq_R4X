@@ -572,11 +572,6 @@ bool Sodaq_R4X::getOperatorInfo(uint16_t* mcc, uint16_t* mnc)
 
 bool Sodaq_R4X::getOperatorInfoNumber(char* buffer, size_t size)
 {
-    // may be up to 24 characters long for long alphanumeric format
-    if (size < 24 + 1) {
-         return false;
-    }
-
     buffer[0] = 0;
 
     // Set mode to numeric format
@@ -584,33 +579,26 @@ bool Sodaq_R4X::getOperatorInfoNumber(char* buffer, size_t size)
         return false;
     }
 
-    println("AT+COPS?");
-
-    char responseBuffer[64];
-    memset(responseBuffer, 0, sizeof(responseBuffer));
-
-    if ((readResponse(responseBuffer, sizeof(responseBuffer), "+COPS: ") == GSMResponseOK) && (strlen(responseBuffer) > 0)) {
-        // Let's hope for the best, that we don't overflow the buffer
-        if (sscanf(responseBuffer, "%*d,%*d,\"%[^\"]\"", buffer) == 1) {
-            return true;
-        }
-    }
-
-    return false;
+    return getOperatorInfo_low(buffer, size);
 }
 
 bool Sodaq_R4X::getOperatorInfoString(char* buffer, size_t size)
 {
-    // may be up to 24 characters long for long alphanumeric format
-    if (size < 24 + 1) {
-         return false;
-    }
-
     buffer[0] = 0;
 
     // Set mode to long alphanumeric format
     if (!execCommand("AT+COPS=3,0")) {
         return false;
+    }
+
+    return getOperatorInfo_low(buffer, size);
+}
+
+bool Sodaq_R4X::getOperatorInfo_low(char* buffer, size_t size)
+{
+    // may be up to 24 characters long for long alphanumeric format
+    if (size < 24 + 1) {
+         return false;
     }
 
     println("AT+COPS?");

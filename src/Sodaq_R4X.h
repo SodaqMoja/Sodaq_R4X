@@ -349,6 +349,8 @@ private:
     bool   doSIMcheck();
     bool   setNetworkLEDState();
 
+    bool    getOperatorInfo_low(char* buffer, size_t size);
+
     void   reboot();
     bool   setSimPin(const char* simPin);
 
