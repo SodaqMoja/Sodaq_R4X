@@ -36,7 +36,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 #define EPOCH_TIME_OFF          946684800  /* This is 1st January 2000, 00:00:00 in epoch time */
 #define ATTACH_NEED_REBOOT      40000
-#define REBOOT_DELAY            1250
+#define REBOOT_DELAY            3500
 #define REBOOT_TIMEOUT          15000
 #define POWER_OFF_DELAY         5000
 
