@@ -342,6 +342,7 @@ public:
     //  Parameters 'name' and 'value' must not include the ':' character
     bool httpSetCustomHeader(uint8_t index, const char* name, const char* value);
     bool httpClearCustomHeader(uint8_t index);
+    bool httpClear();
 
 
     /******************************************************************************
