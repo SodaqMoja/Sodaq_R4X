@@ -33,6 +33,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 #define CONSOLE_STREAM   SerialUSB
 #define MODEM_STREAM     Serial1
+#define CONSOLE_BAUDRATE 115200
 #define MODEM_BAUDRATE   115200
 
 // Uncomment your operator
@@ -90,7 +91,7 @@ void setup()
         // Wait max 10 sec for the CONSOLE_STREAM to open
     }
 
-    CONSOLE_STREAM.begin(115200);
+    CONSOLE_STREAM.begin(CONSOLE_BAUDRATE);
 
     r4x.setDiag(CONSOLE_STREAM);
     r4x.init(&saraR4xxOnOff, MODEM_STREAM, MODEM_BAUDRATE);
