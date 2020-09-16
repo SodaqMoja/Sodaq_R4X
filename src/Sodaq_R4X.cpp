@@ -2050,7 +2050,7 @@ bool Sodaq_R4X::writeFile(const char* filename, const uint8_t* buffer, size_t si
         return false;
     }
 
-    for (size_t i = 0; i < size; i++) {
+    for (size_t i = 0; i < size-1; i++) {
         writeByte(buffer[i]);
     }
 
