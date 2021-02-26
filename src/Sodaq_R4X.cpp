@@ -837,6 +837,10 @@ bool Sodaq_R4X::socketClose(uint8_t socketID, bool async)
 {
     (void)socketFlush(socketID);
 
+    if (socketIsClosed(socketID)) {
+        return true;
+    }
+
     print("AT+USOCL=");
     print(socketID);
 
