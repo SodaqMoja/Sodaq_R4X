@@ -1105,7 +1105,9 @@ size_t Sodaq_R4X::socketSend(uint8_t socketID, const char* remoteHost, const uin
     }
 
     if (_socketClosed[socketID]) {
-        socketConnect(socketID, remoteHost, remotePort);
+        if (!socketConnect(socketID, remoteHost, remotePort)) {
+            return 0;
+        }
     }
 
     /* Show the socket error
