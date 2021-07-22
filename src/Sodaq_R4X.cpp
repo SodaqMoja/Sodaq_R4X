@@ -1104,6 +1104,10 @@ size_t Sodaq_R4X::socketSend(uint8_t socketID, const char* remoteHost, const uin
         return 0;
     }
 
+    if (_socketClosed[socketID]) {
+        socketConnect(socketID, remoteHost, remotePort);
+    }
+
     /* Show the socket error
      * Just is just for diagnostics. Somehow we always see error 65
      * after doing a USOST. 65 is EEOF - End of file.
