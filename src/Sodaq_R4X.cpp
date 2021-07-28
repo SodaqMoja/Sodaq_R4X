@@ -895,7 +895,7 @@ bool Sodaq_R4X::socketConnect(int8_t socketID, const char* remoteHost, const uin
  * @returns 0..(SOCKET_COUNT-1) for a successful creation
  * @returns -1 if creation failed
  */
-int8_t Sodaq_R4X::socketCreate(uint16_t localPort, Protocols protocol)
+int Sodaq_R4X::socketCreate(uint16_t localPort, Protocols protocol)
 {
     print("AT+USOCR=");
     print(protocol == UDP ? "17" : "6");
