@@ -925,7 +925,7 @@ int Sodaq_R4X::socketCreate(uint16_t localPort, Protocols protocol)
     _socketClosed[socketID] = true;
     _socketPendingBytes[socketID] = 0;
 
-    return (int8_t)socketID;
+    return socketID;
 }
 
 /**
