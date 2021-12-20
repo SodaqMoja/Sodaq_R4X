@@ -2495,6 +2495,36 @@ bool Sodaq_R4X::checkMnoProfile(MNOProfile requiredProfile)
     return true;
 }
 
+bool Sodaq_R4X::checkServiceDomain(const char* requiredServiceDomain)
+{
+    println("AT+USVCDOMAIN?");
+
+    char buffer[64];
+    int param1;
+    int param2;
+
+    if (readResponse(buffer, sizeof(buffer), "+USVCDOMAIN: ") != GSMResponseOK) {
+        println("readResponse False");
+        return false;
+    }
+
+    if (sscanf(buffer, "%d,%d", &param1, &param2) != 2) {
+        return false;
+    }
+
+    if (param1 == atoi(requiredServiceDomain)) {
+        return true;
+    }
+
+    print("AT+USVCDOMAIN=");
+    println(requiredServiceDomain);
+    if (readResponse() != GSMResponseOK) {
+        return false;
+    }
+
+    return true;
+}
+
 bool Sodaq_R4X::checkUrat(const char* requiredURAT)
 {
     // Only try and skip if single URAT

@@ -61,6 +61,8 @@ POSSIBILITY OF SUCH DAMAGE.
 #define SODAQ_R4X_AUTOMATIC_OPERATOR    "0"
 #define BAND_MASK_UNCHANGED             0
 
+#define SERVICE_DOMAIN                  "2"
+
 enum HttpRequestTypes {
     POST = 0,
     GET,
@@ -345,6 +347,7 @@ private:
     bool   checkCFUN();
     bool   checkCOPS(const char* requiredOperator, const char* requiredURAT);
     bool   checkMnoProfile(MNOProfile requiredProfile);
+    bool   checkServiceDomain(const char* requiredServiceDomain = SERVICE_DOMAIN);
     bool   checkUrat(const char* requiredURAT);
     bool   doSIMcheck();
     bool   setNetworkLEDState();
