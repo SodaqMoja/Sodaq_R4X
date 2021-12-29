@@ -2504,7 +2504,6 @@ bool Sodaq_R4X::checkServiceDomain(const char* requiredServiceDomain)
     int param2;
 
     if (readResponse(buffer, sizeof(buffer), "+USVCDOMAIN: ") != GSMResponseOK) {
-        println("readResponse False");
         return false;
     }
 
