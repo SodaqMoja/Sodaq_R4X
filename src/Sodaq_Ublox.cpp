@@ -128,7 +128,7 @@ bool Sodaq_Ublox::isAlive(size_t retry_count)
 {
     bool retval = false;
     do {
-        if (execCommand("AT", 450)) {
+        if (execCommand("AT", 1000)) {
             retval = true;
             break;
         }
