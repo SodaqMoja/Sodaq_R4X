@@ -2530,14 +2530,12 @@ bool Sodaq_R4X::checkUrat(const char* requiredURAT)
     if (strlen(requiredURAT) == 1) {
         println("AT+URAT?");
 
-        char buffer[64];
+        char buffer[64] = {0};
 
-        if (readResponse(buffer, sizeof(buffer), "+URAT: ") != GSMResponseOK || strlen(buffer) == 0) {
-            return false;
-        }
-
-        if (strcmp(buffer, requiredURAT) == 0) {
-            return true;
+        if (readResponse(buffer, sizeof(buffer), "+URAT: ") == GSMResponseOK && strlen(buffer) > 0) {
+            if (strcmp(buffer, requiredURAT) == 0) {
+                return true;
+            }
         }
     }
 
