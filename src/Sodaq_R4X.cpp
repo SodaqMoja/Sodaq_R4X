@@ -1875,12 +1875,6 @@ size_t Sodaq_R4X::httpRequest(const char* server, uint16_t port, const char* end
                                    HTTP_SEND_TMP_FILENAME, timeout, useURC);
     }
 
-    // reset http profile 0
-    println("AT+UHTTP=0");
-    if (readResponse() != GSMResponseOK) {
-        return 0;
-    }
-
     deleteFile(HTTP_RECEIVE_FILENAME); // cleanup the file first (if exists)
 
     if (requestType >= HttpRequestTypesMAX) {
@@ -1982,12 +1976,6 @@ size_t Sodaq_R4X::httpRequestFromFile(const char* server, uint16_t port, const c
                                       const char* fileName, uint32_t timeout, bool useURC)
 {
     if (requestType != PUT && requestType != POST) {
-        return 0;
-    }
-
-    // reset http profile 0
-    println("AT+UHTTP=0");
-    if (readResponse() != GSMResponseOK) {
         return 0;
     }
 
@@ -2103,6 +2091,13 @@ bool Sodaq_R4X::httpSetCustomHeader(uint8_t index, const char* name, const char*
 
     println('"');
 
+    return (readResponse() == GSMResponseOK);
+}
+
+bool Sodaq_R4X::httpClear()
+{
+
+    println("AT+UHTTP=0");
     return (readResponse() == GSMResponseOK);
 }
 
@@ -2303,7 +2298,7 @@ bool Sodaq_R4X::writeFile(const char* filename, const uint8_t* buffer, size_t si
         return false;
     }
 
-    for (size_t i = 0; i < size; i++) {
+    for (size_t i = 0; i < size-1; i++) {
         writeByte(buffer[i]);
     }
 
