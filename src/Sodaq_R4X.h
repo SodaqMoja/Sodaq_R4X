@@ -214,7 +214,7 @@ public:
     * Sockets
     *****************************************************************************/
 
-    int    socketCreate(uint16_t localPort = 0, Protocols protocol = UDP);
+    int    socketCreate(uint16_t localPort = 0, UbloxProtocols protocol = UbloxUDP);
 
     bool   socketSetR4KeepAlive(int8_t socketID);
     bool   socketSetR4Option(int8_t socketID, uint16_t level, uint16_t optName, uint32_t optValue, uint32_t optValue2 = 0);

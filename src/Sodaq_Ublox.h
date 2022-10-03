@@ -51,9 +51,9 @@ enum GSMResponseTypes {
     GSMResponseEmpty = 6,
 };
 
-enum Protocols {
-    TCP = 0,
-    UDP
+enum UbloxProtocols {
+    UbloxTCP = 6,
+    UbloxUDP = 17,
 };
 
 class Sodaq_OnOffBee
@@ -111,7 +111,7 @@ public:
     * Sockets
     *****************************************************************************/
 
-    virtual int socketCreate(uint16_t localPort = 0, Protocols protocol = UDP) = 0;
+    virtual int socketCreate(uint16_t localPort = 0, UbloxProtocols protocol = UbloxUDP) = 0;
     virtual bool socketClose(int8_t socketID, bool async = false) = 0;
     int    socketCloseAll();
 
