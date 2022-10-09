@@ -90,6 +90,7 @@ enum HttpRequestTypes {
  * • 32: US Cellular
  * • 39: SKT
  * • 100: standard Europe
+ * • 101: standard Europe, without ePCO
  */
 enum MNOProfile {
     SWD_DEFAULT     = 0,
@@ -107,6 +108,7 @@ enum MNOProfile {
     US_CELLULAR     = 32,
     SKT             = 39,
     STANDARD_EUROPE = 100,
+    STANDARD_EUROPE_NOEPCO = 101,
 };
 
 enum SimStatuses {
