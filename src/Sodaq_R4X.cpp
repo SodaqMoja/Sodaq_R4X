@@ -997,7 +997,7 @@ bool Sodaq_R4X::socketIsClosed(int8_t socketID)
 size_t Sodaq_R4X::socketRead(int8_t socketID, uint8_t* buffer, size_t size)
 {
     if (!is_socketID_valid(socketID)) {
-        return false;
+        return 0;
     }
 
     if (!socketHasPendingBytes(socketID)) {
@@ -1056,7 +1056,7 @@ size_t Sodaq_R4X::socketRead(int8_t socketID, uint8_t* buffer, size_t size)
 size_t Sodaq_R4X::socketReceive(int8_t socketID, uint8_t* buffer, size_t size)
 {
     if (!is_socketID_valid(socketID)) {
-        return false;
+        return 0;
     }
 
     if (!socketHasPendingBytes(socketID)) {
@@ -1118,7 +1118,7 @@ size_t Sodaq_R4X::socketSend(int8_t socketID, const char* remoteHost, const uint
                              const uint8_t* buffer, size_t size)
 {
     if (!is_socketID_valid(socketID)) {
-        return false;
+        return 0;
     }
 
     if (size > SODAQ_MAX_SEND_MESSAGE_SIZE) {
@@ -1300,7 +1300,7 @@ bool Sodaq_R4X::socketWaitForReceive(int8_t socketID, uint32_t timeout)
 size_t Sodaq_R4X::socketWrite(int8_t socketID, const uint8_t* buffer, size_t size)
 {
     if (!is_socketID_valid(socketID)) {
-        return false;
+        return 0;
     }
 
     if (!enableHexMode()) {
