@@ -52,8 +52,8 @@ enum GSMResponseTypes {
 };
 
 enum UbloxProtocols {
-    UbloxTCP = 6,
-    UbloxUDP = 17,
+    UbloxTCP = 6,   // used in AT+USOCR for protocol TCP
+    UbloxUDP = 17,  // used in AT+USOCR for protocol UDP
 };
 
 class Sodaq_OnOffBee
